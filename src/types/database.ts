@@ -279,6 +279,8 @@ export interface Database {
           created_at: string;
           delivered_at?: string;
           expiry_date?: string;
+          tracking_number?: string;
+          scheduled_delivery_date?: string;
         };
         Insert: {
           id?: string;
@@ -294,6 +296,8 @@ export interface Database {
           created_at?: string;
           delivered_at?: string;
           expiry_date?: string;
+          tracking_number?: string;
+          scheduled_delivery_date?: string;
         };
         Update: {
           id?: string;
@@ -309,6 +313,8 @@ export interface Database {
           created_at?: string;
           delivered_at?: string;
           expiry_date?: string;
+          tracking_number?: string;
+          scheduled_delivery_date?: string;
         };
       };
       tasks: {
@@ -1287,42 +1293,39 @@ export interface Database {
           id: string;
           beneficiary_id: string;
           update_type: string;
-          field_name: string;
-          old_value?: string;
-          new_value?: string;
+          changes: any;
           status: 'pending' | 'approved' | 'rejected';
           requested_at: string;
           reviewed_at?: string;
           reviewed_by?: string;
           rejection_reason?: string;
+          notes?: string;
           created_at: string;
         };
         Insert: {
           id?: string;
           beneficiary_id: string;
           update_type: string;
-          field_name: string;
-          old_value?: string;
-          new_value?: string;
+          changes: any;
           status?: 'pending' | 'approved' | 'rejected';
           requested_at?: string;
           reviewed_at?: string;
           reviewed_by?: string;
           rejection_reason?: string;
+          notes?: string;
           created_at?: string;
         };
         Update: {
           id?: string;
           beneficiary_id?: string;
           update_type?: string;
-          field_name?: string;
-          old_value?: string;
-          new_value?: string;
+          changes?: any;
           status?: 'pending' | 'approved' | 'rejected';
           requested_at?: string;
           reviewed_at?: string;
           reviewed_by?: string;
           rejection_reason?: string;
+          notes?: string;
           created_at?: string;
         };
       };

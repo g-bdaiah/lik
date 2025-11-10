@@ -6,40 +6,51 @@ type DataUpdate = Database['public']['Tables']['beneficiary_data_updates']['Row'
 export interface UpdateRequest {
   beneficiaryId: string;
   updateType: string;
+  changes: Record<string, any>;
+}
+
+export interface SingleFieldUpdateRequest {
+  beneficiaryId: string;
+  updateType: string;
   fieldName: string;
   oldValue: string;
   newValue: string;
 }
 
 export const dataUpdateService = {
-  async submitDataUpdateRequest(request: UpdateRequest): Promise<void> {
+  async submitDataUpdateRequest(request: UpdateRequest): Promise<string> {
     if (!supabase) throw new Error('Supabase not initialized');
 
-    const canUpdate = await this.canUpdateField(request.beneficiaryId, request.fieldName);
-
-    if (!canUpdate.allowed) {
-      throw new Error(canUpdate.reason || 'غير مسموح بتحديث هذا الحقل');
+    for (const fieldName of Object.keys(request.changes)) {
+      const canUpdate = await this.canUpdateField(request.beneficiaryId, fieldName);
+      if (!canUpdate.allowed) {
+        throw new Error(canUpdate.reason || `غير مسموح بتحديث حقل ${this.getFieldArabicName(fieldName)}`);
+      }
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('beneficiary_data_updates')
       .insert({
         beneficiary_id: request.beneficiaryId,
         update_type: request.updateType,
-        field_name: request.fieldName,
-        old_value: request.oldValue,
-        new_value: request.newValue,
+        changes: request.changes,
         status: 'pending'
-      });
+      })
+      .select()
+      .single();
 
     if (error) throw error;
+
+    const fieldsList = Object.keys(request.changes).map(f => this.getFieldArabicName(f)).join('، ');
 
     await this.createNotification(
       request.beneficiaryId,
       'general',
       'طلب تحديث البيانات',
-      'تم إرسال طلب تحديث بياناتك. سيتم مراجعته من قبل الإدارة قريباً.'
+      `تم إرسال طلب تحديث البيانات التالية: ${fieldsList}. سيتم مراجعته من قبل الإدارة قريباً.`
     );
+
+    return data.id;
   },
 
   async getUpdateRequests(beneficiaryId?: string, status?: string): Promise<DataUpdate[]> {
@@ -76,7 +87,7 @@ export const dataUpdateService = {
     return count || 0;
   },
 
-  async approveDataUpdate(updateId: string, reviewedBy: string): Promise<void> {
+  async approveDataUpdate(updateId: string, reviewedBy: string, notes?: string): Promise<void> {
     if (!supabase) throw new Error('Supabase not initialized');
 
     const { data: update, error: fetchError } = await supabase
@@ -93,16 +104,18 @@ export const dataUpdateService = {
       .update({
         status: 'approved',
         reviewed_at: new Date().toISOString(),
-        reviewed_by: reviewedBy
+        reviewed_by: reviewedBy,
+        notes: notes
       })
       .eq('id', updateId);
 
     if (updateStatusError) throw updateStatusError;
 
-    const updateData: any = {};
-    updateData[update.field_name] = update.new_value;
-    updateData.updated_at = new Date().toISOString();
-    updateData.updated_by = reviewedBy;
+    const updateData: any = {
+      ...update.changes,
+      updated_at: new Date().toISOString(),
+      updated_by: reviewedBy
+    };
 
     const { error: applyError } = await supabase
       .from('beneficiaries')
@@ -111,15 +124,17 @@ export const dataUpdateService = {
 
     if (applyError) throw applyError;
 
+    const fieldsList = Object.keys(update.changes).map(f => this.getFieldArabicName(f)).join('، ');
+
     await this.createNotification(
       update.beneficiary_id,
       'data_update_response',
       'تمت الموافقة على تحديث البيانات',
-      `تمت الموافقة على طلب تحديث ${this.getFieldArabicName(update.field_name)}.`
+      `تمت الموافقة على طلب تحديث البيانات التالية: ${fieldsList}.`
     );
   },
 
-  async rejectDataUpdate(updateId: string, reviewedBy: string, reason: string): Promise<void> {
+  async rejectDataUpdate(updateId: string, reviewedBy: string, reason: string, notes?: string): Promise<void> {
     if (!supabase) throw new Error('Supabase not initialized');
 
     const { data: update, error: fetchError } = await supabase
@@ -137,17 +152,20 @@ export const dataUpdateService = {
         status: 'rejected',
         reviewed_at: new Date().toISOString(),
         reviewed_by: reviewedBy,
-        rejection_reason: reason
+        rejection_reason: reason,
+        notes: notes
       })
       .eq('id', updateId);
 
     if (error) throw error;
 
+    const fieldsList = Object.keys(update.changes).map(f => this.getFieldArabicName(f)).join('، ');
+
     await this.createNotification(
       update.beneficiary_id,
       'data_update_response',
       'تم رفض تحديث البيانات',
-      `تم رفض طلب تحديث ${this.getFieldArabicName(update.field_name)}. السبب: ${reason}`
+      `تم رفض طلب تحديث البيانات التالية: ${fieldsList}. السبب: ${reason}`
     );
   },
 
