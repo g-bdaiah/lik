@@ -32,6 +32,7 @@ import BeneficiaryPortalSettings from './pages/BeneficiaryPortalSettings';
 import BeneficiaryStatusManagement from './pages/BeneficiaryStatusManagement';
 import DataUpdateRequestsPage from './pages/DataUpdateRequestsPage';
 import SMSSettingsPage from './pages/SMSSettingsPage';
+import ServicesManagementPage from './pages/ServicesManagementPage';
 
 interface NavItem {
   id: string;
@@ -137,6 +138,7 @@ export default function AdminDashboard({ activeTab, setActiveTab }: AdminDashboa
       icon: Settings,
       children: [
         { id: 'permissions', name: 'إدارة الصلاحيات', icon: Shield },
+        { id: 'services-management', name: 'إدارة الخدمات', icon: Settings },
         { id: 'beneficiary-portal', name: 'بوابة المستفيدين', icon: Users },
         { id: 'messages', name: 'إعدادات الرسائل', icon: MessageSquare },
         { id: 'sms-settings', name: 'إعدادات SMS', icon: Phone },
@@ -157,6 +159,7 @@ export default function AdminDashboard({ activeTab, setActiveTab }: AdminDashboa
 
   const settingsItems = [
     { id: 'permissions', name: 'إدارة الصلاحيات', icon: Shield, description: 'إدارة أدوار المستخدمين وصلاحياتهم' },
+    { id: 'services-management', name: 'إدارة الخدمات', icon: Settings, description: 'تفعيل وتعطيل الخدمات المتاحة في النظام' },
     { id: 'beneficiary-portal', name: 'بوابة المستفيدين', icon: Users, description: 'إعدادات وتفعيل بوابة المستفيدين' },
     { id: 'messages', name: 'إعدادات الرسائل', icon: MessageSquare, description: 'إدارة قوالب الرسائل والتنبيهات' },
     { id: 'sms-settings', name: 'إعدادات SMS', icon: Phone, description: 'إدارة خدمة SMS وإرسال رسائل التحقق' },
@@ -930,6 +933,14 @@ export default function AdminDashboard({ activeTab, setActiveTab }: AdminDashboa
       return (
         <div className="space-y-6">
           <SMSSettingsPage />
+        </div>
+      );
+    }
+
+    if (activeTab === 'services-management') {
+      return (
+        <div className="space-y-6">
+          <ServicesManagementPage />
         </div>
       );
     }
