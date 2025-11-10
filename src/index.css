@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* RTL Support */
+html {
+  direction: rtl;
+}
+
+body {
+  font-family: 'Almarai', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Custom RTL utilities */
+.rtl-flip {
+  transform: scaleX(-1);
+}
+
+/* Fix for icons in RTL */
+.icon-rtl {
+  margin-left: 0;
+  margin-right: 0.5rem;
+}
+
+/* Scrollbar RTL fix */
+.scrollbar-rtl {
+  direction: ltr;
+}
+
+.scrollbar-rtl > * {
+  direction: rtl;
+}
