@@ -3,6 +3,7 @@ import { Search, User, Package, Clock, CheckCircle, AlertCircle, MapPin, Phone, 
 import { beneficiaryAuthService } from '../services/beneficiaryAuthService';
 import { packagesService } from '../services/supabaseRealService';
 import { Button, Input, Card, Modal } from './ui';
+import RegistrationWizard from './RegistrationWizard';
 import type { Database } from '../types/database';
 
 type Beneficiary = Database['public']['Tables']['beneficiaries']['Row'];
@@ -773,35 +774,30 @@ export default function BeneficiaryPortal({ onBack }: { onBack: () => void }) {
     );
   };
 
+  const handleRegistrationComplete = async (beneficiaryId: string) => {
+    try {
+      const beneficiary = await beneficiaryAuthService.searchByNationalId(nationalId);
+      if (beneficiary) {
+        await loadDashboardData(beneficiary.id);
+        setState(prev => ({
+          ...prev,
+          beneficiary,
+          step: 'dashboard',
+          isLoading: false,
+          error: ''
+        }));
+      }
+    } catch (error) {
+      console.error('Error after registration:', error);
+    }
+  };
+
   const renderRegisterStep = () => (
-    <Card className="max-w-md mx-auto">
-      <div className="text-center mb-6">
-        <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4">
-          <AlertCircle className="w-8 h-8 text-orange-600" />
-        </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          غير مسجل
-        </h2>
-        <p className="text-gray-600">
-          رقم الهوية {nationalId} غير موجود في قاعدة البيانات
-        </p>
-      </div>
-
-      <div className="space-y-4">
-        <Button onClick={() => console.log('Register new beneficiary')} className="w-full">
-          تسجيل جديد
-        </Button>
-
-        <div className="text-center">
-          <button
-            onClick={() => setState(prev => ({ ...prev, step: 'search', error: '', nationalId: '' }))}
-            className="text-sm text-gray-600 hover:text-gray-900"
-          >
-            العودة للبحث
-          </button>
-        </div>
-      </div>
-    </Card>
+    <RegistrationWizard
+      initialNationalId={nationalId}
+      onComplete={handleRegistrationComplete}
+      onCancel={() => setState(prev => ({ ...prev, step: 'search' }))}
+    />
   );
 
   return (

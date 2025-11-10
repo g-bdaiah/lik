@@ -50,6 +50,24 @@ export const beneficiaryAuthService = {
     return data;
   },
 
+  async createBeneficiary(beneficiaryData: any): Promise<Beneficiary> {
+    if (!supabase) throw new Error('Supabase not initialized');
+
+    const existingBeneficiary = await this.searchByNationalId(beneficiaryData.national_id);
+    if (existingBeneficiary) {
+      throw new Error('رقم الهوية موجود مسبقاً في النظام');
+    }
+
+    const { data, error } = await supabase
+      .from('beneficiaries')
+      .insert(beneficiaryData)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Beneficiary;
+  },
+
   async getAuthByNationalId(nationalId: string): Promise<BeneficiaryAuthData | null> {
     if (!supabase) throw new Error('Supabase not initialized');
 

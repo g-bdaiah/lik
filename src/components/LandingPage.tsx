@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Shield, Search, Package, CheckCircle, Clock, AlertCircle, MessageCircle, Phone, ArrowLeft, HelpCircle, Users, Building2, Heart, LogIn, Info, ChevronDown, PlayCircle, Lightbulb } from 'lucide-react';
+import { Shield, Search, Package, CheckCircle, Clock, AlertCircle, MessageCircle, Phone, ArrowLeft, HelpCircle, Users, Building2, Heart, LogIn, Info, ChevronDown, PlayCircle, Lightbulb, UserPlus } from 'lucide-react';
 import { beneficiaryAuthService } from '../services/beneficiaryAuthService';
 import { Button, Input, Card, SearchLoadingSkeleton } from './ui';
 import BeneficiaryPortalModal from './BeneficiaryPortalModal';
+import RegistrationWizard from './RegistrationWizard';
 import type { Database } from '../types/database';
 
 type Beneficiary = Database['public']['Tables']['beneficiaries']['Row'];
@@ -38,6 +39,7 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
   const [showPortalModal, setShowPortalModal] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showExampleImage, setShowExampleImage] = useState(false);
+  const [showRegistrationWizard, setShowRegistrationWizard] = useState(false);
 
   const handleSearch = async () => {
     if (!beneficiaryAuthService.validateNationalId(nationalId)) {
@@ -82,6 +84,11 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
     const phone = '+970599505699';
     const message = encodeURIComponent('مرحباً، أحتاج مساعدة في البحث عن معلوماتي');
     window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+  };
+
+  const handleRegistrationComplete = async (beneficiaryId: string) => {
+    setShowRegistrationWizard(false);
+    await handleSearch();
   };
 
   const getStatusBadge = (status: string) => {
@@ -487,6 +494,13 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
 
                   <div className="flex flex-col sm:flex-row gap-4 justify-center">
                     <Button
+                      onClick={() => setShowRegistrationWizard(true)}
+                      className="px-6 py-3 text-base font-bold bg-blue-600 hover:bg-blue-700"
+                    >
+                      <UserPlus className="w-5 h-5 ml-2" />
+                      تسجيل حساب جديد
+                    </Button>
+                    <Button
                       onClick={handleReset}
                       variant="outline"
                       className="px-6 py-3 text-base font-bold"
@@ -627,6 +641,16 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
         nationalId={nationalId}
         initialBeneficiary={fullBeneficiary}
       />
+
+      {showRegistrationWizard && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <RegistrationWizard
+            initialNationalId={nationalId}
+            onComplete={handleRegistrationComplete}
+            onCancel={() => setShowRegistrationWizard(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }
