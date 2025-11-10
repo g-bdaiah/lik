@@ -43,15 +43,31 @@ export function LoadingSkeleton({
 
 interface SearchLoadingProps {
   message?: string;
+  progress?: number;
 }
 
-export function SearchLoadingSkeleton({ message = 'جاري البحث...' }: SearchLoadingProps) {
+export function SearchLoadingSkeleton({ message = 'جاري البحث...', progress }: SearchLoadingProps) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
       <div className="flex items-center justify-center mb-6">
-        <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+        <div className="relative">
+          <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+          {progress !== undefined && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-xs font-bold text-blue-600">{progress}%</span>
+            </div>
+          )}
+        </div>
       </div>
-      <p className="text-center text-lg font-semibold text-gray-700 mb-6">{message}</p>
+      <p className="text-center text-lg font-semibold text-gray-700 mb-4">{message}</p>
+      {progress !== undefined && (
+        <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
+          <div
+            className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      )}
       <div className="space-y-4">
         <LoadingSkeleton variant="text" lines={2} />
         <div className="grid grid-cols-2 gap-4 mt-4">

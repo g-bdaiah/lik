@@ -71,7 +71,7 @@ function AppContent({
   showErrorConsole,
   setShowErrorConsole
 }: AppContentProps) {
-  const { loggedInUser, login, logout, isLoading } = useAuth();
+  const { loggedInUser, login, logout, isLoading, error, retryAuth } = useAuth();
 
   const handleLogin = (user: SystemUser) => {
     login(user);
@@ -94,7 +94,24 @@ function AppContent({
   };
 
   if (isLoading) {
-    return <SearchLoadingSkeleton message="جاري التحقق من الجلسة..." />;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full">
+          <SearchLoadingSkeleton message="جاري التحقق من الجلسة..." />
+          {error && (
+            <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-800 text-sm mb-3">{error}</p>
+              <button
+                onClick={retryAuth}
+                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              >
+                إعادة المحاولة
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   }
 
   if (!loggedInUser && currentPage !== 'landing') {
