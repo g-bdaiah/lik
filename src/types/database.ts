@@ -81,6 +81,12 @@ export interface Database {
           packages_available: number;
           templates_count: number;
           is_popular: boolean;
+          coverage_areas?: any;
+          target_categories?: any;
+          current_capacity?: number;
+          acceptance_criteria?: any;
+          max_capacity?: number;
+          monthly_distribution?: number;
         };
         Insert: {
           id?: string;
@@ -183,6 +189,17 @@ export interface Database {
           updated_at: string;
           created_by: string;
           updated_by: string;
+          verification_status?: 'verified' | 'under_review' | 'rejected';
+          qualification_status?: 'qualified' | 'needs_update' | 'unqualified';
+          verification_notes?: string;
+          qualification_notes?: string;
+          suggested_organizations_ids?: string[];
+          phone_locked?: boolean;
+          phone_locked_at?: string;
+          whatsapp_number?: string;
+          whatsapp_family_member?: string;
+          personal_photo_url?: string;
+          last_portal_access?: string;
         };
         Insert: {
           id?: string;
@@ -1265,7 +1282,79 @@ export interface Database {
           created_at?: string;
         };
       };
-      // إضافة باقي الجداول الجديدة...
+      beneficiary_data_updates: {
+        Row: {
+          id: string;
+          beneficiary_id: string;
+          update_type: string;
+          field_name: string;
+          old_value?: string;
+          new_value?: string;
+          status: 'pending' | 'approved' | 'rejected';
+          requested_at: string;
+          reviewed_at?: string;
+          reviewed_by?: string;
+          rejection_reason?: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          beneficiary_id: string;
+          update_type: string;
+          field_name: string;
+          old_value?: string;
+          new_value?: string;
+          status?: 'pending' | 'approved' | 'rejected';
+          requested_at?: string;
+          reviewed_at?: string;
+          reviewed_by?: string;
+          rejection_reason?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          beneficiary_id?: string;
+          update_type?: string;
+          field_name?: string;
+          old_value?: string;
+          new_value?: string;
+          status?: 'pending' | 'approved' | 'rejected';
+          requested_at?: string;
+          reviewed_at?: string;
+          reviewed_by?: string;
+          rejection_reason?: string;
+          created_at?: string;
+        };
+      };
+      beneficiary_notifications: {
+        Row: {
+          id: string;
+          beneficiary_id: string;
+          notification_type: 'verification_status_change' | 'package_assigned' | 'package_delivery' | 'data_update_response' | 'qualification_status_change' | 'general';
+          title: string;
+          message: string;
+          is_read: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          beneficiary_id: string;
+          notification_type: 'verification_status_change' | 'package_assigned' | 'package_delivery' | 'data_update_response' | 'qualification_status_change' | 'general';
+          title: string;
+          message: string;
+          is_read?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          beneficiary_id?: string;
+          notification_type?: 'verification_status_change' | 'package_assigned' | 'package_delivery' | 'data_update_response' | 'qualification_status_change' | 'general';
+          title?: string;
+          message?: string;
+          is_read?: boolean;
+          created_at?: string;
+        };
+      };
       user_sessions: {
         Row: {
           id: string;
@@ -1530,3 +1619,12 @@ export type CourierPerformance = Database['public']['Views']['courier_performanc
 // أنواع للدوال
 export type SearchBeneficiariesResult = Database['public']['Functions']['search_beneficiaries']['Returns'][0];
 export type GeographicStatisticsResult = Database['public']['Functions']['get_geographic_statistics']['Returns'][0];
+
+// أنواع للجداول الجديدة
+export type BeneficiaryDataUpdate = Database['public']['Tables']['beneficiary_data_updates']['Row'];
+export type BeneficiaryDataUpdateInsert = Database['public']['Tables']['beneficiary_data_updates']['Insert'];
+export type BeneficiaryDataUpdateUpdate = Database['public']['Tables']['beneficiary_data_updates']['Update'];
+
+export type BeneficiaryNotification = Database['public']['Tables']['beneficiary_notifications']['Row'];
+export type BeneficiaryNotificationInsert = Database['public']['Tables']['beneficiary_notifications']['Insert'];
+export type BeneficiaryNotificationUpdate = Database['public']['Tables']['beneficiary_notifications']['Update'];
