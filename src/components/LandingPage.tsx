@@ -1,46 +1,44 @@
 import React, { useState } from 'react';
-import { Shield, Search, Package, CheckCircle, Clock, AlertCircle, MessageCircle, Phone, HelpCircle, Users, Building2, Heart, Info, ChevronDown, Lightbulb, UserPlus } from 'lucide-react';
-import { beneficiaryAuthService } from '../services/beneficiaryAuthService';
+import { Shield, Search, Package, CheckCircle, Clock, AlertCircle, MessageCircle, Phone, HelpCircle, Users, Building2, Heart, Info, ChevronDown, Lightbulb, UserPlus, User, FileText } from 'lucide-react';
+import { searchBeneficiaryByNationalId } from '../services/beneficiarySearchService';
 import { Button, Input, Card, SearchLoadingSkeleton } from './ui';
+import Tabs from './ui/Tabs';
+import OverviewTab from './beneficiary-search/OverviewTab';
+import BeneficiaryDataTab from './beneficiary-search/BeneficiaryDataTab';
+import PackagesTab from './beneficiary-search/PackagesTab';
 import RegistrationWizard from './RegistrationWizard';
 import type { Database } from '../types/database';
 
 type Beneficiary = Database['public']['Tables']['beneficiaries']['Row'];
+type PackageType = Database['public']['Tables']['packages']['Row'];
 
 interface LandingPageProps {
   onNavigateTo: (page: string) => void;
 }
 
 interface SearchResult {
-  found: boolean;
-  beneficiary?: {
-    name: string;
-    national_id: string;
-    status: string;
-  };
-  packages?: Array<{
-    id: string;
-    name: string;
-    status: string;
-    scheduled_delivery_date: string | null;
-    tracking_number: string | null;
-  }>;
-  message?: string;
+  beneficiary: Beneficiary | null;
+  packages: PackageType[];
+  totalPackages: number;
+  deliveredPackages: number;
+  pendingPackages: number;
+  inDeliveryPackages: number;
+  error?: string;
 }
 
 export default function LandingPage({ onNavigateTo }: LandingPageProps) {
   const [nationalId, setNationalId] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
-  const [fullBeneficiary, setFullBeneficiary] = useState<Beneficiary | null>(null);
   const [error, setError] = useState('');
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showExampleImage, setShowExampleImage] = useState(false);
   const [showRegistrationWizard, setShowRegistrationWizard] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
 
   const handleSearch = async () => {
-    if (!beneficiaryAuthService.validateNationalId(nationalId)) {
+    if (nationalId.length !== 9) {
       setError('رقم الهوية يجب أن يتكون من 9 أرقام');
       return;
     }
@@ -50,13 +48,18 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
     setSearchResult(null);
 
     try {
-      const result = await beneficiaryAuthService.publicSearch(nationalId);
-      setSearchResult(result);
+      const result = await searchBeneficiaryByNationalId(nationalId.trim());
 
-      const beneficiary = await beneficiaryAuthService.searchByNationalId(nationalId);
-      setFullBeneficiary(beneficiary);
+      if (result.error) {
+        setError(result.error);
+        setSearchResult(null);
+      } else {
+        setSearchResult(result);
+        setActiveTab('overview');
+      }
     } catch (err: any) {
       setError(err.message || 'حدث خطأ أثناء البحث');
+      setSearchResult(null);
     } finally {
       setIsSearching(false);
     }
@@ -73,6 +76,7 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
     setNationalId('');
     setSearchResult(null);
     setError('');
+    setActiveTab('overview');
   };
 
   const handleWhatsAppSupport = () => {
@@ -86,23 +90,10 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
     await handleSearch();
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig: any = {
-      delivered: { label: 'تم التسليم', color: 'bg-green-100 text-green-700', icon: CheckCircle },
-      in_delivery: { label: 'قيد التوصيل', color: 'bg-orange-100 text-orange-700', icon: Clock },
-      assigned: { label: 'جاري التحضير', color: 'bg-blue-100 text-blue-700', icon: Package },
-      pending: { label: 'قيد الانتظار', color: 'bg-gray-100 text-gray-700', icon: Clock }
-    };
-
-    const config = statusConfig[status] || statusConfig.pending;
-    const Icon = config.icon;
-
-    return (
-      <span className={`inline-flex items-center gap-1 px-3 py-1 text-sm font-medium rounded-full ${config.color}`}>
-        <Icon className="w-4 h-4" />
-        {config.label}
-      </span>
-    );
+  const handleRefresh = async () => {
+    if (searchResult?.beneficiary) {
+      await handleSearch();
+    }
   };
 
   return (
@@ -169,16 +160,6 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
                       <div>
                         <p className="font-medium text-gray-900">بوابة المستفيدين</p>
                         <p className="text-xs text-gray-600">حسابي الشخصي</p>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => onNavigateTo('search')}
-                      className="w-full px-4 py-3 text-right hover:bg-green-50 flex items-center gap-3 transition-colors"
-                    >
-                      <Search className="w-4 h-4 text-green-600" />
-                      <div>
-                        <p className="font-medium text-gray-900">البحث المتقدم</p>
-                        <p className="text-xs text-gray-600">بحث تفصيلي عن المستفيدين</p>
                       </div>
                     </button>
                   </div>
@@ -312,21 +293,6 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
                 </div>
               )}
 
-              {/* Quick Access to Advanced Search */}
-              <div className="mb-6">
-                <button
-                  onClick={() => onNavigateTo('search')}
-                  className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white font-bold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-3"
-                >
-                  <Search className="w-6 h-6" />
-                  <span className="text-lg">البحث المتقدم عن المستفيدين</span>
-                  <span className="text-sm bg-white/20 px-3 py-1 rounded-full">جديد</span>
-                </button>
-                <p className="text-center text-sm text-gray-600 mt-2">
-                  للبحث التفصيلي مع عرض جميع البيانات، الطرود، وحالة التوثيق
-                </p>
-              </div>
-
               {/* Instructions - Enhanced for Non-Technical Users */}
               <div className="bg-gradient-to-br from-green-50 to-blue-50 border-2 border-green-300 rounded-xl p-5 shadow-sm">
                 <button
@@ -383,235 +349,135 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
         )}
 
         {/* Search Results */}
-        {searchResult && !isSearching && (
+        {searchResult && !isSearching && searchResult.beneficiary && (
           <div className="space-y-6">
-            {searchResult.found && searchResult.beneficiary ? (
-              <>
-                {/* Beneficiary Info */}
-                <Card>
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 bg-green-50 rounded-full flex items-center justify-center">
-                        <CheckCircle className="w-7 h-7 text-green-600" />
-                      </div>
-                      <div>
-                        <h3 className="text-2xl font-bold text-gray-900">
-                          {searchResult.beneficiary.name}
-                        </h3>
-                        <p className="text-gray-600">رقم الهوية: {searchResult.beneficiary.national_id}</p>
-                      </div>
-                    </div>
-                    <Button onClick={handleReset} variant="ghost" size="sm">
-                      بحث جديد
-                    </Button>
-                  </div>
-
-                  {/* Account Status Section */}
-                  <div className="mb-6 grid md:grid-cols-2 gap-4">
-                    {/* Verification Status */}
-                    <div className={`p-4 rounded-lg border-2 ${
-                      searchResult.beneficiary.verification_status === 'verified'
-                        ? 'bg-green-50 border-green-200'
-                        : searchResult.beneficiary.verification_status === 'under_review'
-                        ? 'bg-yellow-50 border-yellow-200'
-                        : 'bg-red-50 border-red-200'
-                    }`}>
-                      <div className="flex items-center gap-2 mb-2">
-                        {searchResult.beneficiary.verification_status === 'verified' ? (
-                          <CheckCircle className="w-5 h-5 text-green-600" />
-                        ) : searchResult.beneficiary.verification_status === 'under_review' ? (
-                          <Clock className="w-5 h-5 text-yellow-600" />
-                        ) : (
-                          <AlertCircle className="w-5 h-5 text-red-600" />
-                        )}
-                        <h4 className={`font-semibold ${
-                          searchResult.beneficiary.verification_status === 'verified'
-                            ? 'text-green-900'
-                            : searchResult.beneficiary.verification_status === 'under_review'
-                            ? 'text-yellow-900'
-                            : 'text-red-900'
-                        }`}>
-                          حالة التوثيق
-                        </h4>
-                      </div>
-                      <p className={`text-sm ${
-                        searchResult.beneficiary.verification_status === 'verified'
-                          ? 'text-green-700'
-                          : searchResult.beneficiary.verification_status === 'under_review'
-                          ? 'text-yellow-700'
-                          : 'text-red-700'
-                      }`}>
-                        {searchResult.beneficiary.verification_status === 'verified'
-                          ? 'حسابك موثق ✓'
-                          : searchResult.beneficiary.verification_status === 'under_review'
-                          ? 'قيد المراجعة'
-                          : 'يحتاج تحديث'}
-                      </p>
-                      {searchResult.beneficiary.verification_notes && (
-                        <p className="text-xs text-gray-600 mt-2">
-                          {searchResult.beneficiary.verification_notes}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Qualification Status */}
-                    <div className={`p-4 rounded-lg border-2 ${
-                      searchResult.beneficiary.qualification_status === 'qualified'
-                        ? 'bg-green-50 border-green-200'
-                        : searchResult.beneficiary.qualification_status === 'needs_update'
-                        ? 'bg-blue-50 border-blue-200'
-                        : 'bg-gray-50 border-gray-200'
-                    }`}>
-                      <div className="flex items-center gap-2 mb-2">
-                        {searchResult.beneficiary.qualification_status === 'qualified' ? (
-                          <CheckCircle className="w-5 h-5 text-green-600" />
-                        ) : searchResult.beneficiary.qualification_status === 'needs_update' ? (
-                          <Info className="w-5 h-5 text-blue-600" />
-                        ) : (
-                          <AlertCircle className="w-5 h-5 text-gray-600" />
-                        )}
-                        <h4 className={`font-semibold ${
-                          searchResult.beneficiary.qualification_status === 'qualified'
-                            ? 'text-green-900'
-                            : searchResult.beneficiary.qualification_status === 'needs_update'
-                            ? 'text-blue-900'
-                            : 'text-gray-900'
-                        }`}>
-                          حالة الأهلية
-                        </h4>
-                      </div>
-                      <p className={`text-sm ${
-                        searchResult.beneficiary.qualification_status === 'qualified'
-                          ? 'text-green-700'
-                          : searchResult.beneficiary.qualification_status === 'needs_update'
-                          ? 'text-blue-700'
-                          : 'text-gray-700'
-                      }`}>
-                        {searchResult.beneficiary.qualification_status === 'qualified'
-                          ? 'مؤهل للمساعدات ✓'
-                          : searchResult.beneficiary.qualification_status === 'needs_update'
-                          ? 'يحتاج تحديث البيانات'
-                          : 'غير مؤهل حالياً'}
-                      </p>
-                      {searchResult.beneficiary.qualification_notes && (
-                        <p className="text-xs text-gray-600 mt-2">
-                          {searchResult.beneficiary.qualification_notes}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Packages List */}
-                  <div>
-                    <h4 className="text-lg font-semibold text-gray-900 mb-4">
-                      الطرود المخصصة ({searchResult.packages?.length || 0})
-                    </h4>
-
-                    {searchResult.packages && searchResult.packages.length > 0 ? (
-                      <div className="space-y-3">
-                        {searchResult.packages.map((pkg) => (
-                          <div
-                            key={pkg.id}
-                            className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors"
-                          >
-                            <div className="flex items-start justify-between mb-3">
-                              <div className="flex-1">
-                                <h5 className="font-semibold text-gray-900 mb-1">{pkg.name}</h5>
-                                {pkg.tracking_number && (
-                                  <p className="text-sm text-gray-600">
-                                    رقم التتبع: <span className="font-mono">{pkg.tracking_number}</span>
-                                  </p>
-                                )}
-                              </div>
-                              {getStatusBadge(pkg.status)}
-                            </div>
-                            {pkg.scheduled_delivery_date && (
-                              <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <Clock className="w-4 h-4" />
-                                <span>
-                                  التسليم المتوقع: {new Date(pkg.scheduled_delivery_date).toLocaleDateString('ar-EG', {
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric'
-                                  })}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+            <Card padding="none">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4 space-x-reverse">
+                    {searchResult.beneficiary.personal_photo_url ? (
+                      <img
+                        src={searchResult.beneficiary.personal_photo_url}
+                        alt={searchResult.beneficiary.name}
+                        className="w-16 h-16 rounded-full object-cover border-2 border-blue-200"
+                      />
                     ) : (
-                      <div className="text-center py-8 bg-gray-50 rounded-lg">
-                        <Package className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                        <p className="text-gray-600">لا توجد طرود مسجلة حالياً</p>
+                      <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
+                        <User className="w-8 h-8 text-blue-600" />
                       </div>
                     )}
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-900">{searchResult.beneficiary.name}</h2>
+                      <p className="text-gray-600">رقم الهوية: {searchResult.beneficiary.national_id}</p>
+                    </div>
                   </div>
-
-                </Card>
-              </>
-            ) : (
-              <Card className="bg-gradient-to-br from-orange-50 to-yellow-50 border-2 border-orange-200">
-                <div className="text-center py-10">
-                  <div className="w-20 h-20 bg-orange-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-lg">
-                    <AlertCircle className="w-10 h-10 text-white" />
-                  </div>
-                  <h3 className="text-2xl font-bold text-gray-900 mb-3">
-                    لم نجد معلومات بهذا الرقم
-                  </h3>
-                  <p className="text-lg text-gray-700 mb-6 max-w-md mx-auto leading-relaxed">
-                    {searchResult.message || 'رقم الهوية الذي أدخلته غير موجود في قاعدة بياناتنا'}
-                  </p>
-
-                  <div className="bg-white rounded-xl p-6 mb-6 max-w-md mx-auto border-2 border-orange-300">
-                    <h4 className="font-bold text-gray-900 mb-3 flex items-center justify-center gap-2">
-                      <Lightbulb className="w-5 h-5 text-orange-600" />
-                      ماذا يمكنك أن تفعل؟
-                    </h4>
-                    <ul className="space-y-3 text-right">
-                      <li className="flex items-start gap-3">
-                        <span className="w-6 h-6 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">1</span>
-                        <span className="text-gray-700">تأكد من كتابة رقم الهوية بشكل صحيح (9 أرقام)</span>
-                      </li>
-                      <li className="flex items-start gap-3">
-                        <span className="w-6 h-6 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">2</span>
-                        <span className="text-gray-700">جرب البحث مرة أخرى</span>
-                      </li>
-                      <li className="flex items-start gap-3">
-                        <span className="w-6 h-6 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">3</span>
-                        <span className="text-gray-700">تواصل مع فريق الدعم للمساعدة</span>
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                    <Button
-                      onClick={() => setShowRegistrationWizard(true)}
-                      className="px-6 py-3 text-base font-bold bg-blue-600 hover:bg-blue-700"
-                    >
-                      <UserPlus className="w-5 h-5 ml-2" />
-                      تسجيل حساب جديد
-                    </Button>
-                    <Button
-                      onClick={handleReset}
-                      variant="outline"
-                      className="px-6 py-3 text-base font-bold"
-                    >
-                      <Search className="w-5 h-5 ml-2" />
-                      بحث مرة أخرى
-                    </Button>
-                    <Button
-                      onClick={handleWhatsAppSupport}
-                      className="px-6 py-3 text-base font-bold bg-green-600 hover:bg-green-700"
-                    >
-                      <MessageCircle className="w-5 h-5 ml-2" />
-                      تواصل معنا الآن
-                    </Button>
-                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleReset}
+                  >
+                    بحث جديد
+                  </Button>
                 </div>
-              </Card>
-            )}
+              </div>
+
+              <Tabs
+                tabs={[
+                  { id: 'overview', label: 'نظرة عامة', icon: User },
+                  { id: 'data', label: 'بيانات المستفيد', icon: FileText },
+                  { id: 'packages', label: 'الطرود', icon: Package, badge: searchResult.totalPackages }
+                ]}
+                activeTab={activeTab}
+                onChange={setActiveTab}
+              />
+
+              <div className="p-6">
+                {activeTab === 'overview' && (
+                  <OverviewTab
+                    beneficiary={searchResult.beneficiary}
+                    packagesStats={{
+                      total: searchResult.totalPackages,
+                      delivered: searchResult.deliveredPackages,
+                      pending: searchResult.pendingPackages,
+                      inDelivery: searchResult.inDeliveryPackages
+                    }}
+                  />
+                )}
+                {activeTab === 'data' && (
+                  <BeneficiaryDataTab
+                    beneficiary={searchResult.beneficiary}
+                    onUpdate={handleRefresh}
+                  />
+                )}
+                {activeTab === 'packages' && (
+                  <PackagesTab packages={searchResult.packages} />
+                )}
+              </div>
+            </Card>
           </div>
+        )}
+
+        {/* Error: Not Found */}
+        {searchResult && !isSearching && !searchResult.beneficiary && (
+          <Card className="bg-gradient-to-br from-orange-50 to-yellow-50 border-2 border-orange-200">
+            <div className="text-center py-10">
+              <div className="w-20 h-20 bg-orange-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-lg">
+                <AlertCircle className="w-10 h-10 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                لم نجد معلومات بهذا الرقم
+              </h3>
+              <p className="text-lg text-gray-700 mb-6 max-w-md mx-auto leading-relaxed">
+                {searchResult.error || 'رقم الهوية الذي أدخلته غير موجود في قاعدة بياناتنا'}
+              </p>
+
+              <div className="bg-white rounded-xl p-6 mb-6 max-w-md mx-auto border-2 border-orange-300">
+                <h4 className="font-bold text-gray-900 mb-3 flex items-center justify-center gap-2">
+                  <Lightbulb className="w-5 h-5 text-orange-600" />
+                  ماذا يمكنك أن تفعل؟
+                </h4>
+                <ul className="space-y-3 text-right">
+                  <li className="flex items-start gap-3">
+                    <span className="w-6 h-6 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">1</span>
+                    <span className="text-gray-700">تأكد من كتابة رقم الهوية بشكل صحيح (9 أرقام)</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="w-6 h-6 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">2</span>
+                    <span className="text-gray-700">جرب البحث مرة أخرى</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="w-6 h-6 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">3</span>
+                    <span className="text-gray-700">تواصل مع فريق الدعم للمساعدة</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button
+                  onClick={() => setShowRegistrationWizard(true)}
+                  className="px-6 py-3 text-base font-bold bg-blue-600 hover:bg-blue-700"
+                >
+                  <UserPlus className="w-5 h-5 ml-2" />
+                  تسجيل حساب جديد
+                </Button>
+                <Button
+                  onClick={handleReset}
+                  variant="outline"
+                  className="px-6 py-3 text-base font-bold"
+                >
+                  <Search className="w-5 h-5 ml-2" />
+                  بحث مرة أخرى
+                </Button>
+                <Button
+                  onClick={handleWhatsAppSupport}
+                  className="px-6 py-3 text-base font-bold bg-green-600 hover:bg-green-700"
+                >
+                  <MessageCircle className="w-5 h-5 ml-2" />
+                  تواصل معنا الآن
+                </Button>
+              </div>
+            </div>
+          </Card>
         )}
 
         {/* Instant Help Button - Prominent for Non-Technical Users */}
