@@ -8,7 +8,7 @@ import type { SystemUser } from './data/mockData';
 import { SearchLoadingSkeleton } from './components/ui';
 
 // Lazy load heavy components for better performance
-const MockLogin = lazy(() => import('./components/MockLogin'));
+const RealLogin = lazy(() => import('./components/RealLogin'));
 const LandingPage = lazy(() => import('./components/LandingPage'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 const OrganizationsDashboard = lazy(() => import('./components/OrganizationsDashboard'));
@@ -62,16 +62,16 @@ interface AppContentProps {
   setShowErrorConsole: (show: boolean) => void;
 }
 
-function AppContent({ 
-  currentPage, 
-  activeTab, 
-  setActiveTab, 
-  handleNavigateTo, 
+function AppContent({
+  currentPage,
+  activeTab,
+  setActiveTab,
+  handleNavigateTo,
   handleNavigateBack,
   showErrorConsole,
-  setShowErrorConsole 
+  setShowErrorConsole
 }: AppContentProps) {
-  const { loggedInUser, login, logout } = useAuth();
+  const { loggedInUser, login, logout, isLoading } = useAuth();
 
   const handleLogin = (user: SystemUser) => {
     login(user);
@@ -93,11 +93,15 @@ function AppContent({
     setActiveTab('overview');
   };
 
+  if (isLoading) {
+    return <SearchLoadingSkeleton message="جاري التحقق من الجلسة..." />;
+  }
+
   if (!loggedInUser && currentPage !== 'landing') {
     return (
       <Suspense fallback={<SearchLoadingSkeleton message="جاري تحميل صفحة تسجيل الدخول..." />}>
-        <ErrorBoundary componentName="MockLogin">
-          <MockLogin onLogin={handleLogin} />
+        <ErrorBoundary componentName="RealLogin">
+          <RealLogin onLogin={handleLogin} />
         </ErrorBoundary>
       </Suspense>
     );
