@@ -1,0 +1,519 @@
+import { supabase } from '../lib/supabaseClient';
+
+export interface SMSSettings {
+  id: string;
+  username: string;
+  password_encrypted: string;
+  sender_name: string;
+  api_key_encrypted?: string;
+  api_url: string;
+  balance_check_url: string;
+  max_daily_limit: number;
+  current_daily_count: number;
+  low_balance_threshold: number;
+  low_balance_alert_enabled: boolean;
+  is_active: boolean;
+  last_balance_amount: number;
+}
+
+export interface SMSLog {
+  id: string;
+  phone_number: string;
+  message_text: string;
+  message_type: 'otp' | 'notification' | 'alert' | 'test' | 'custom';
+  status: 'pending' | 'sent' | 'failed' | 'cancelled';
+  sms_id?: string;
+  result_code?: string;
+  error_message?: string;
+  beneficiary_id?: string;
+  package_id?: string;
+  sent_by: string;
+  retry_count: number;
+  created_at: string;
+  sent_at?: string;
+}
+
+export interface VerificationCode {
+  id: string;
+  code: string;
+  phone_number: string;
+  beneficiary_id?: string;
+  expires_at: string;
+  is_used: boolean;
+  verification_type: 'registration' | 'login' | 'password_reset' | 'phone_change' | 'data_update';
+  attempt_count: number;
+  max_attempts: number;
+  is_locked: boolean;
+}
+
+export interface SMSResponse {
+  success: boolean;
+  sms_id?: string;
+  result_code?: string;
+  error?: string;
+  message?: string;
+}
+
+export interface BalanceResponse {
+  success: boolean;
+  balance?: number;
+  error?: string;
+}
+
+export const smsService = {
+  async encrypt(text: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(text);
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hash));
+    return btoa(String.fromCharCode(...hashArray));
+  },
+
+  async decrypt(encrypted: string): Promise<string> {
+    try {
+      const decoded = atob(encrypted);
+      return decoded;
+    } catch {
+      return encrypted;
+    }
+  },
+
+  formatPhoneNumber(phone: string): string {
+    const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+
+    if (cleaned.startsWith('972')) {
+      return cleaned;
+    } else if (cleaned.startsWith('+972')) {
+      return cleaned.substring(1);
+    } else if (cleaned.startsWith('05')) {
+      return '972' + cleaned.substring(1);
+    } else if (cleaned.startsWith('5')) {
+      return '972' + cleaned;
+    }
+
+    return cleaned;
+  },
+
+  validatePhoneNumber(phone: string): boolean {
+    const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+    return /^(?:\+?972|0)?5[0-9]{8}$/.test(cleaned);
+  },
+
+  generateOTPCode(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  },
+
+  async getSettings(): Promise<SMSSettings | null> {
+    if (!supabase) throw new Error('Supabase not initialized');
+
+    const { data, error } = await supabase
+      .from('sms_api_settings')
+      .select('*')
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data as SMSSettings | null;
+  },
+
+  async saveSettings(settings: Partial<SMSSettings>): Promise<SMSSettings> {
+    if (!supabase) throw new Error('Supabase not initialized');
+
+    const existingSettings = await this.getSettings();
+
+    if (existingSettings) {
+      const { data, error } = await supabase
+        .from('sms_api_settings')
+        .update({
+          ...settings,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingSettings.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as SMSSettings;
+    } else {
+      const { data, error } = await supabase
+        .from('sms_api_settings')
+        .insert({
+          ...settings,
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as SMSSettings;
+    }
+  },
+
+  async checkBalance(): Promise<BalanceResponse> {
+    const settings = await this.getSettings();
+
+    if (!settings || !settings.is_active) {
+      return { success: false, error: 'SMS service not configured' };
+    }
+
+    try {
+      const username = settings.username;
+      const password = await this.decrypt(settings.password_encrypted);
+
+      const url = `${settings.balance_check_url}&user=${encodeURIComponent(username)}&pass=${encodeURIComponent(password)}`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+      });
+
+      const text = await response.text();
+
+      const balance = parseInt(text);
+
+      if (!isNaN(balance)) {
+        await supabase
+          .from('sms_api_settings')
+          .update({
+            last_balance_amount: balance,
+            last_balance_check: new Date().toISOString(),
+          })
+          .eq('id', settings.id);
+
+        return { success: true, balance };
+      } else {
+        return { success: false, error: text };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  },
+
+  async sendSMS(
+    phoneNumber: string,
+    message: string,
+    messageType: SMSLog['message_type'] = 'custom',
+    beneficiaryId?: string,
+    packageId?: string
+  ): Promise<SMSResponse> {
+    const settings = await this.getSettings();
+
+    if (!settings || !settings.is_active) {
+      return { success: false, error: 'SMS service not configured' };
+    }
+
+    if (!this.validatePhoneNumber(phoneNumber)) {
+      return { success: false, error: 'Invalid phone number format' };
+    }
+
+    await supabase?.rpc('reset_daily_sms_count');
+
+    if (settings.current_daily_count >= settings.max_daily_limit) {
+      return { success: false, error: 'Daily SMS limit reached' };
+    }
+
+    const formattedPhone = this.formatPhoneNumber(phoneNumber);
+
+    const logEntry = {
+      phone_number: formattedPhone,
+      message_text: message,
+      message_type: messageType,
+      status: 'pending' as const,
+      beneficiary_id: beneficiaryId,
+      package_id: packageId,
+      sent_by: 'system',
+      retry_count: 0,
+    };
+
+    const { data: logData, error: logError } = await supabase!
+      .from('sms_logs')
+      .insert(logEntry)
+      .select()
+      .single();
+
+    if (logError) {
+      return { success: false, error: logError.message };
+    }
+
+    try {
+      const username = settings.username;
+      const password = await this.decrypt(settings.password_encrypted);
+      const sender = settings.sender_name;
+
+      const params = new URLSearchParams({
+        comm: 'sendsms',
+        user: username,
+        pass: password,
+        to: formattedPhone,
+        message: message,
+        sender: sender,
+      });
+
+      const response = await fetch(`${settings.api_url}?${params.toString()}`, {
+        method: 'GET',
+      });
+
+      const resultText = await response.text();
+
+      const resultParts = resultText.split(':');
+      const resultCode = resultParts[0];
+      const smsId = resultParts[1];
+
+      let status: 'sent' | 'failed' = 'failed';
+      let errorMessage: string | undefined;
+
+      switch (resultCode) {
+        case '999':
+          status = 'sent';
+          await supabase!
+            .from('sms_api_settings')
+            .update({
+              current_daily_count: settings.current_daily_count + 1,
+            })
+            .eq('id', settings.id);
+          break;
+        case '-100':
+          errorMessage = 'Missing parameters';
+          break;
+        case '-110':
+          errorMessage = 'Wrong username or password';
+          break;
+        case '-113':
+          errorMessage = 'Not enough balance';
+          if (settings.low_balance_alert_enabled) {
+            await this.checkBalance();
+          }
+          break;
+        case '-115':
+          errorMessage = 'Sender not available';
+          break;
+        case '-116':
+          errorMessage = 'Invalid sender name';
+          break;
+        case '-2':
+          errorMessage = 'Invalid destination or country not supported';
+          break;
+        case '-999':
+          errorMessage = 'Failed to send by SMS provider';
+          break;
+        default:
+          errorMessage = `Unknown error: ${resultCode}`;
+      }
+
+      await supabase!
+        .from('sms_logs')
+        .update({
+          status,
+          sms_id: smsId || undefined,
+          result_code: resultCode,
+          error_message: errorMessage,
+          sent_at: status === 'sent' ? new Date().toISOString() : undefined,
+          failed_at: status === 'failed' ? new Date().toISOString() : undefined,
+        })
+        .eq('id', logData.id);
+
+      return {
+        success: status === 'sent',
+        sms_id: smsId,
+        result_code: resultCode,
+        error: errorMessage,
+        message: status === 'sent' ? 'SMS sent successfully' : errorMessage,
+      };
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      await supabase!
+        .from('sms_logs')
+        .update({
+          status: 'failed',
+          error_message: errorMessage,
+          failed_at: new Date().toISOString(),
+        })
+        .eq('id', logData.id);
+
+      return { success: false, error: errorMessage };
+    }
+  },
+
+  async createVerificationCode(
+    phoneNumber: string,
+    verificationType: VerificationCode['verification_type'] = 'registration',
+    beneficiaryId?: string
+  ): Promise<{ code: string; id: string } | null> {
+    if (!supabase) throw new Error('Supabase not initialized');
+
+    const code = this.generateOTPCode();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    const { data, error } = await supabase
+      .from('verification_codes')
+      .insert({
+        code,
+        phone_number: this.formatPhoneNumber(phoneNumber),
+        beneficiary_id: beneficiaryId,
+        expires_at: expiresAt.toISOString(),
+        verification_type: verificationType,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { code, id: data.id };
+  },
+
+  async sendOTP(
+    phoneNumber: string,
+    name: string,
+    verificationType: VerificationCode['verification_type'] = 'registration',
+    beneficiaryId?: string
+  ): Promise<SMSResponse> {
+    const verification = await this.createVerificationCode(
+      phoneNumber,
+      verificationType,
+      beneficiaryId
+    );
+
+    if (!verification) {
+      return { success: false, error: 'Failed to create verification code' };
+    }
+
+    const message = `مرحباً ${name}،\n\nرمز التحقق الخاص بك هو:\n\n🔢 ${verification.code}\n\n⏰ صالح لمدة 5 دقائق.\n\nفريق الدعم`;
+
+    const result = await this.sendSMS(
+      phoneNumber,
+      message,
+      'otp',
+      beneficiaryId
+    );
+
+    if (result.success && supabase) {
+      await supabase
+        .from('verification_codes')
+        .update({ notes: `SMS ID: ${result.sms_id}` })
+        .eq('id', verification.id);
+    }
+
+    return result;
+  },
+
+  async verifyOTP(
+    phoneNumber: string,
+    code: string
+  ): Promise<{ success: boolean; error?: string; beneficiaryId?: string }> {
+    if (!supabase) throw new Error('Supabase not initialized');
+
+    const formattedPhone = this.formatPhoneNumber(phoneNumber);
+
+    const { data, error } = await supabase
+      .rpc('verify_otp_code', {
+        p_phone_number: formattedPhone,
+        p_code: code,
+      });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    if (data && typeof data === 'object' && 'success' in data) {
+      return {
+        success: data.success,
+        error: data.error || data.message,
+        beneficiaryId: data.beneficiary_id,
+      };
+    }
+
+    return { success: false, error: 'Invalid response from server' };
+  },
+
+  async getSMSLogs(
+    limit: number = 100,
+    offset: number = 0,
+    filters?: {
+      status?: string;
+      messageType?: string;
+      phoneNumber?: string;
+      startDate?: string;
+      endDate?: string;
+    }
+  ): Promise<SMSLog[]> {
+    if (!supabase) throw new Error('Supabase not initialized');
+
+    let query = supabase
+      .from('sms_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (filters?.status) {
+      query = query.eq('status', filters.status);
+    }
+    if (filters?.messageType) {
+      query = query.eq('message_type', filters.messageType);
+    }
+    if (filters?.phoneNumber) {
+      query = query.ilike('phone_number', `%${filters.phoneNumber}%`);
+    }
+    if (filters?.startDate) {
+      query = query.gte('created_at', filters.startDate);
+    }
+    if (filters?.endDate) {
+      query = query.lte('created_at', filters.endDate);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    return (data || []) as SMSLog[];
+  },
+
+  async getSMSStatistics(days: number = 30): Promise<any> {
+    if (!supabase) throw new Error('Supabase not initialized');
+
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const endDate = new Date().toISOString();
+
+    const { data, error } = await supabase
+      .rpc('get_sms_statistics', {
+        p_start_date: startDate,
+        p_end_date: endDate,
+      });
+
+    if (error) throw error;
+    return data;
+  },
+
+  async cleanupExpiredCodes(): Promise<number> {
+    if (!supabase) throw new Error('Supabase not initialized');
+
+    const { data, error } = await supabase
+      .rpc('cleanup_expired_verification_codes');
+
+    if (error) throw error;
+    return data || 0;
+  },
+
+  templates: {
+    welcome: (name: string): string => {
+      return `مرحباً ${name}،\n\n🎉 تم استلام طلب تسجيلك بنجاح!\n\nطلبك الآن قيد المراجعة من قبل فريقنا. سنتواصل معك قريباً.\n\nفريق الدعم`;
+    },
+
+    packageUpdate: (name: string, packageName: string, status: string): string => {
+      return `مرحباً ${name}،\n\nتم تحديث حالة طردك:\n\n📦 ${packageName}\n📍 الحالة: ${status}\n\nفريق الدعم`;
+    },
+
+    identityApproved: (name: string): string => {
+      return `مرحباً ${name}،\n\n✅ تم الموافقة على توثيق هويتك بنجاح!\n\nيمكنك الآن الوصول إلى جميع خدمات النظام.\n\nفريق الدعم`;
+    },
+
+    identityRejected: (name: string, reason: string): string => {
+      return `مرحباً ${name}،\n\n❌ نأسف لإبلاغك أن طلب التوثيق قد تم رفضه.\n\nالسبب: ${reason}\n\nيرجى التواصل مع الدعم.\n\nفريق الدعم`;
+    },
+
+    passwordReset: (name: string, code: string): string => {
+      return `مرحباً ${name}،\n\nرمز إعادة تعيين كلمة المرور:\n\n🔑 ${code}\n\n⏰ صالح لمدة 5 دقائق.\n\nفريق الدعم`;
+    },
+  },
+};

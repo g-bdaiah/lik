@@ -31,6 +31,7 @@ import MessagesSettingsPage from './pages/MessagesSettingsPage';
 import BeneficiaryPortalSettings from './pages/BeneficiaryPortalSettings';
 import BeneficiaryStatusManagement from './pages/BeneficiaryStatusManagement';
 import DataUpdateRequestsPage from './pages/DataUpdateRequestsPage';
+import SMSSettingsPage from './pages/SMSSettingsPage';
 
 interface NavItem {
   id: string;
@@ -138,6 +139,7 @@ export default function AdminDashboard({ activeTab, setActiveTab }: AdminDashboa
         { id: 'permissions', name: 'إدارة الصلاحيات', icon: Shield },
         { id: 'beneficiary-portal', name: 'بوابة المستفيدين', icon: Users },
         { id: 'messages', name: 'إعدادات الرسائل', icon: MessageSquare },
+        { id: 'sms-settings', name: 'إعدادات SMS', icon: Phone },
         { id: 'system', name: 'إعدادات النظام', icon: Settings },
         { id: 'backup', name: 'النسخ الاحتياطي', icon: Database },
         { id: 'audit', name: 'سجل المراجعة', icon: Activity }
@@ -157,6 +159,7 @@ export default function AdminDashboard({ activeTab, setActiveTab }: AdminDashboa
     { id: 'permissions', name: 'إدارة الصلاحيات', icon: Shield, description: 'إدارة أدوار المستخدمين وصلاحياتهم' },
     { id: 'beneficiary-portal', name: 'بوابة المستفيدين', icon: Users, description: 'إعدادات وتفعيل بوابة المستفيدين' },
     { id: 'messages', name: 'إعدادات الرسائل', icon: MessageSquare, description: 'إدارة قوالب الرسائل والتنبيهات' },
+    { id: 'sms-settings', name: 'إعدادات SMS', icon: Phone, description: 'إدارة خدمة SMS وإرسال رسائل التحقق' },
     { id: 'system', name: 'إعدادات النظام', icon: Settings, description: 'الإعدادات العامة للنظام' },
     { id: 'backup', name: 'النسخ الاحتياطي', icon: Database, description: 'إدارة النسخ الاحتياطية للبيانات' },
     { id: 'audit', name: 'سجل المراجعة', icon: Activity, description: 'سجل جميع العمليات في النظام' }
@@ -288,6 +291,7 @@ export default function AdminDashboard({ activeTab, setActiveTab }: AdminDashboa
       'alerts': 'التنبيهات والإشعارات المهمة',
       'permissions': 'إدارة أدوار المستخدمين وصلاحياتهم',
       'messages': 'إدارة قوالب الرسائل والتنبيهات',
+      'sms-settings': 'إدارة خدمة TweetSMS API وإرسال رسائل التحقق',
       'system': 'الإعدادات العامة للنظام',
       'backup': 'إدارة النسخ الاحتياطية للبيانات',
       'audit': 'سجل جميع العمليات في النظام'
@@ -918,6 +922,14 @@ export default function AdminDashboard({ activeTab, setActiveTab }: AdminDashboa
             </div>
           </div>
           <MessagesSettingsPage />
+        </div>
+      );
+    }
+
+    if (activeTab === 'sms-settings') {
+      return (
+        <div className="space-y-6">
+          <SMSSettingsPage />
         </div>
       );
     }
