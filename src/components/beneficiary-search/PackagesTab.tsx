@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Package, Calendar, CheckCircle, Clock, Truck, Eye, Filter, Search } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Package, Calendar, CheckCircle, Clock, Truck, Eye, Filter, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card, Badge, Button, Input } from '../ui';
 import { Database } from '../../types/database';
 
@@ -9,10 +9,13 @@ interface PackagesTabProps {
   packages: PackageType[];
 }
 
+const ITEMS_PER_PAGE = 20;
+
 export default function PackagesTab({ packages }: PackagesTabProps) {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPackage, setSelectedPackage] = useState<PackageType | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const getStatusInfo = (status: string) => {
     switch (status) {
@@ -31,12 +34,24 @@ export default function PackagesTab({ packages }: PackagesTabProps) {
     }
   };
 
-  const filteredPackages = packages.filter(pkg => {
-    const matchesStatus = filterStatus === 'all' || pkg.status === filterStatus;
-    const matchesSearch = pkg.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         pkg.type.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesStatus && matchesSearch;
-  });
+  const filteredPackages = useMemo(() => {
+    return packages.filter(pkg => {
+      const matchesStatus = filterStatus === 'all' || pkg.status === filterStatus;
+      const matchesSearch = pkg.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           pkg.type.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesStatus && matchesSearch;
+    });
+  }, [packages, filterStatus, searchTerm]);
+
+  const totalPages = Math.ceil(filteredPackages.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedPackages = filteredPackages.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const deliveredPackages = packages.filter(p => p.status === 'delivered');
   const inDeliveryPackages = packages.filter(p => p.status === 'in_delivery');
@@ -72,9 +87,16 @@ export default function PackagesTab({ packages }: PackagesTabProps) {
 
       <Card>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-          <h3 className="text-xl font-bold text-gray-900">
-            سجل الطرود ({filteredPackages.length})
-          </h3>
+          <div>
+            <h3 className="text-xl font-bold text-gray-900">
+              سجل الطرود ({filteredPackages.length})
+            </h3>
+            {filteredPackages.length > ITEMS_PER_PAGE && (
+              <p className="text-sm text-gray-600 mt-1">
+                عرض {startIndex + 1} - {Math.min(endIndex, filteredPackages.length)} من {filteredPackages.length}
+              </p>
+            )}
+          </div>
           <div className="flex flex-col md:flex-row gap-3">
             <Input
               type="text"
@@ -126,7 +148,7 @@ export default function PackagesTab({ packages }: PackagesTabProps) {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredPackages.map((pkg) => {
+                {paginatedPackages.map((pkg) => {
                   const statusInfo = getStatusInfo(pkg.status);
                   const StatusIcon = statusInfo.icon;
 
@@ -185,6 +207,66 @@ export default function PackagesTab({ packages }: PackagesTabProps) {
                 })}
               </tbody>
             </table>
+
+            {totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-between border-t pt-4">
+                <div className="text-sm text-gray-600">
+                  صفحة {currentPage} من {totalPages}
+                </div>
+                <div className="flex items-center space-x-2 space-x-reverse">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={ChevronRight}
+                    iconPosition="right"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    السابق
+                  </Button>
+
+                  <div className="flex items-center space-x-1 space-x-reverse">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNumber;
+                      if (totalPages <= 5) {
+                        pageNumber = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNumber = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNumber = totalPages - 4 + i;
+                      } else {
+                        pageNumber = currentPage - 2 + i;
+                      }
+
+                      return (
+                        <button
+                          key={pageNumber}
+                          onClick={() => handlePageChange(pageNumber)}
+                          className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                            currentPage === pageNumber
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          {pageNumber}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={ChevronLeft}
+                    iconPosition="left"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    التالي
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center py-12">

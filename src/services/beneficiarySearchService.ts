@@ -11,19 +11,49 @@ interface BeneficiarySearchResult {
   deliveredPackages: number;
   pendingPackages: number;
   inDeliveryPackages: number;
+  assignedPackages?: number;
+  failedPackages?: number;
   error?: string;
 }
 
-export const searchBeneficiaryByNationalId = async (nationalId: string): Promise<BeneficiarySearchResult> => {
-  try {
-    const { data: beneficiary, error: beneficiaryError } = await supabase
-      .from('beneficiaries')
-      .select('*')
-      .eq('national_id', nationalId)
-      .maybeSingle();
+interface SearchCache {
+  [key: string]: {
+    data: BeneficiarySearchResult;
+    timestamp: number;
+  };
+}
 
-    if (beneficiaryError) {
-      console.error('Error fetching beneficiary:', beneficiaryError);
+const searchCache: SearchCache = {};
+const CACHE_DURATION = 5 * 60 * 1000;
+
+export const searchBeneficiaryByNationalId = async (
+  nationalId: string,
+  options: { limit?: number; offset?: number; useCache?: boolean } = {}
+): Promise<BeneficiarySearchResult> => {
+  const { limit = 50, offset = 0, useCache = true } = options;
+  const cacheKey = `${nationalId}_${limit}_${offset}`;
+
+  if (useCache && searchCache[cacheKey]) {
+    const cached = searchCache[cacheKey];
+    const isExpired = Date.now() - cached.timestamp > CACHE_DURATION;
+
+    if (!isExpired) {
+      console.log('Returning cached search result for:', nationalId);
+      return cached.data;
+    } else {
+      delete searchCache[cacheKey];
+    }
+  }
+
+  try {
+    const { data, error } = await supabase.rpc('search_beneficiary_with_packages', {
+      p_national_id: nationalId,
+      p_limit: limit,
+      p_offset: offset
+    });
+
+    if (error) {
+      console.error('Error calling search_beneficiary_with_packages:', error);
       return {
         beneficiary: null,
         packages: [],
@@ -31,11 +61,13 @@ export const searchBeneficiaryByNationalId = async (nationalId: string): Promise
         deliveredPackages: 0,
         pendingPackages: 0,
         inDeliveryPackages: 0,
+        assignedPackages: 0,
+        failedPackages: 0,
         error: 'حدث خطأ أثناء البحث عن المستفيد'
       };
     }
 
-    if (!beneficiary) {
+    if (!data) {
       return {
         beneficiary: null,
         packages: [],
@@ -43,33 +75,45 @@ export const searchBeneficiaryByNationalId = async (nationalId: string): Promise
         deliveredPackages: 0,
         pendingPackages: 0,
         inDeliveryPackages: 0,
-        error: 'لم يتم العثور على مستفيد بهذا الرقم'
+        assignedPackages: 0,
+        failedPackages: 0,
+        error: 'حدث خطأ في معالجة البيانات'
       };
     }
 
-    const { data: packages, error: packagesError } = await supabase
-      .from('packages')
-      .select('*')
-      .eq('beneficiary_id', beneficiary.id)
-      .order('created_at', { ascending: false });
-
-    if (packagesError) {
-      console.error('Error fetching packages:', packagesError);
+    if (data.error) {
+      return {
+        beneficiary: null,
+        packages: [],
+        totalPackages: 0,
+        deliveredPackages: 0,
+        pendingPackages: 0,
+        inDeliveryPackages: 0,
+        assignedPackages: 0,
+        failedPackages: 0,
+        error: data.error
+      };
     }
 
-    const packagesList = packages || [];
-    const deliveredPackages = packagesList.filter(p => p.status === 'delivered').length;
-    const pendingPackages = packagesList.filter(p => p.status === 'pending').length;
-    const inDeliveryPackages = packagesList.filter(p => p.status === 'in_delivery').length;
-
-    return {
-      beneficiary,
-      packages: packagesList,
-      totalPackages: packagesList.length,
-      deliveredPackages,
-      pendingPackages,
-      inDeliveryPackages
+    const result: BeneficiarySearchResult = {
+      beneficiary: data.beneficiary,
+      packages: data.packages || [],
+      totalPackages: data.stats?.total || 0,
+      deliveredPackages: data.stats?.delivered || 0,
+      pendingPackages: data.stats?.pending || 0,
+      inDeliveryPackages: data.stats?.in_delivery || 0,
+      assignedPackages: data.stats?.assigned || 0,
+      failedPackages: data.stats?.failed || 0
     };
+
+    if (useCache && result.beneficiary) {
+      searchCache[cacheKey] = {
+        data: result,
+        timestamp: Date.now()
+      };
+    }
+
+    return result;
   } catch (error) {
     console.error('Unexpected error in searchBeneficiaryByNationalId:', error);
     return {
@@ -79,18 +123,33 @@ export const searchBeneficiaryByNationalId = async (nationalId: string): Promise
       deliveredPackages: 0,
       pendingPackages: 0,
       inDeliveryPackages: 0,
+      assignedPackages: 0,
+      failedPackages: 0,
       error: 'حدث خطأ غير متوقع'
     };
   }
 };
 
-export const getBeneficiaryPackageHistory = async (beneficiaryId: string): Promise<Package[]> => {
+export const getBeneficiaryPackageHistory = async (
+  beneficiaryId: string,
+  limit?: number,
+  offset?: number
+): Promise<Package[]> => {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('packages')
       .select('*')
       .eq('beneficiary_id', beneficiaryId)
       .order('created_at', { ascending: false });
+
+    if (limit) {
+      query = query.limit(limit);
+    }
+    if (offset) {
+      query = query.range(offset, offset + (limit || 50) - 1);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Error fetching package history:', error);
@@ -122,9 +181,34 @@ export const updateBeneficiaryData = async (
       return { success: false, error: 'فشل تحديث بيانات المستفيد' };
     }
 
+    clearSearchCache();
+
     return { success: true };
   } catch (error) {
     console.error('Unexpected error in updateBeneficiaryData:', error);
     return { success: false, error: 'حدث خطأ غير متوقع' };
+  }
+};
+
+export const clearSearchCache = () => {
+  Object.keys(searchCache).forEach(key => delete searchCache[key]);
+  console.log('Search cache cleared');
+};
+
+export const quickSearchBeneficiary = async (nationalId: string): Promise<any> => {
+  try {
+    const { data, error } = await supabase.rpc('quick_search_beneficiary', {
+      p_national_id: nationalId
+    });
+
+    if (error) {
+      console.error('Error calling quick_search_beneficiary:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Unexpected error in quickSearchBeneficiary:', error);
+    return null;
   }
 };

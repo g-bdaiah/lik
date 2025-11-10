@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Search, User, FileText, Package, Loader, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Search, User, FileText, Package, Loader, AlertCircle, Clock } from 'lucide-react';
 import { Card, Input, Button } from '../ui';
 import Tabs from '../ui/Tabs';
 import OverviewTab from '../beneficiary-search/OverviewTab';
@@ -21,27 +21,46 @@ export default function BeneficiarySearchPage() {
     total: 0,
     delivered: 0,
     pending: 0,
-    inDelivery: 0
+    inDelivery: 0,
+    assigned: 0,
+    failed: 0
   });
   const [activeTab, setActiveTab] = useState('overview');
+  const [searchTime, setSearchTime] = useState<number | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const handleSearch = async () => {
+  const handleSearch = useCallback(async (useCache: boolean = true) => {
     if (!nationalId.trim()) {
       setSearchError('الرجاء إدخال رقم الهوية الوطنية');
       return;
     }
 
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    abortControllerRef.current = new AbortController();
+
     setIsSearching(true);
     setSearchError(null);
+    const startTime = performance.now();
 
     try {
-      const result = await searchBeneficiaryByNationalId(nationalId.trim());
+      const result = await searchBeneficiaryByNationalId(nationalId.trim(), {
+        limit: 50,
+        offset: 0,
+        useCache
+      });
+
+      const endTime = performance.now();
+      const duration = Math.round(endTime - startTime);
+      setSearchTime(duration);
 
       if (result.error) {
         setSearchError(result.error);
         setBeneficiary(null);
         setPackages([]);
-        setPackagesStats({ total: 0, delivered: 0, pending: 0, inDelivery: 0 });
+        setPackagesStats({ total: 0, delivered: 0, pending: 0, inDelivery: 0, assigned: 0, failed: 0 });
       } else if (result.beneficiary) {
         setBeneficiary(result.beneficiary);
         setPackages(result.packages);
@@ -49,22 +68,35 @@ export default function BeneficiarySearchPage() {
           total: result.totalPackages,
           delivered: result.deliveredPackages,
           pending: result.pendingPackages,
-          inDelivery: result.inDeliveryPackages
+          inDelivery: result.inDeliveryPackages,
+          assigned: result.assignedPackages || 0,
+          failed: result.failedPackages || 0
         });
         setActiveTab('overview');
       }
-    } catch (error) {
-      setSearchError('حدث خطأ غير متوقع أثناء البحث');
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        setSearchError('حدث خطأ غير متوقع أثناء البحث');
+      }
     } finally {
       setIsSearching(false);
+      abortControllerRef.current = null;
     }
-  };
+  }, [nationalId]);
 
   const handleRefresh = async () => {
     if (beneficiary) {
-      await handleSearch();
+      await handleSearch(false);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   const tabs = [
     { id: 'overview', label: 'نظرة عامة', icon: User },
@@ -88,6 +120,17 @@ export default function BeneficiarySearchPage() {
         </div>
 
         <Card className="mb-8">
+          {searchTime !== null && (
+            <div className="mb-4 flex items-center justify-between text-sm text-gray-600 bg-green-50 p-3 rounded-lg border border-green-200">
+              <div className="flex items-center space-x-2 space-x-reverse">
+                <Clock className="w-4 h-4 text-green-600" />
+                <span className="font-medium text-green-700">وقت البحث: {searchTime} ميلي ثانية</span>
+              </div>
+              {searchTime < 1000 && (
+                <span className="text-xs text-green-600 font-semibold">سريع جداً</span>
+              )}
+            </div>
+          )}
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <Input
