@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Save, X, MapPin, Phone, Home, Briefcase, Users, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { Button, Input, Card, Modal } from '../ui';
 import { dataUpdateService } from '../../services/dataUpdateService';
@@ -26,10 +26,30 @@ export default function UpdateDataForm({ beneficiary, onSuccess, onCancel }: Upd
 
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [hasExistingPassword, setHasExistingPassword] = useState<boolean | null>(null);
+  const [isCheckingPassword, setIsCheckingPassword] = useState(true);
+
+  useEffect(() => {
+    checkIfHasPassword();
+  }, []);
+
+  const checkIfHasPassword = async () => {
+    setIsCheckingPassword(true);
+    try {
+      const hasPass = await beneficiaryAuthService.hasPassword(beneficiary.id);
+      setHasExistingPassword(hasPass);
+    } catch (err) {
+      console.error('Error checking password:', err);
+      setHasExistingPassword(false);
+    } finally {
+      setIsCheckingPassword(false);
+    }
+  };
 
   const hasChanges = () => {
     return (
@@ -63,20 +83,46 @@ export default function UpdateDataForm({ beneficiary, onSuccess, onCancel }: Upd
       return;
     }
 
+    if (!hasExistingPassword) {
+      if (password !== confirmPassword) {
+        setError('كلمتا المرور غير متطابقتين');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     setError('');
 
     try {
       const passwordHash = beneficiaryAuthService.hashPassword(password);
-      const result = await beneficiaryAuthService.verifyPassword(
-        beneficiary.national_id,
-        passwordHash
-      );
 
-      if (!result.success) {
-        setError(result.message || 'كلمة المرور غير صحيحة');
-        setIsSubmitting(false);
-        return;
+      if (hasExistingPassword) {
+        const result = await beneficiaryAuthService.verifyPassword(
+          beneficiary.national_id,
+          passwordHash
+        );
+
+        if (!result.success) {
+          setError(result.message || 'كلمة المرور غير صحيحة');
+          setIsSubmitting(false);
+          return;
+        }
+      } else {
+        await beneficiaryAuthService.createAuth(
+          beneficiary.id,
+          beneficiary.national_id,
+          passwordHash
+        );
+
+        await beneficiaryAuthService.logActivity(
+          'إنشاء كلمة مرور جديدة للمستفيد',
+          beneficiary.name,
+          'beneficiary',
+          'create',
+          beneficiary.id,
+          'تم إنشاء كلمة مرور للمرة الأولى',
+          'beneficiary'
+        );
       }
 
       const changes: Record<string, any> = {};
@@ -279,62 +325,115 @@ export default function UpdateDataForm({ beneficiary, onSuccess, onCancel }: Upd
       <Modal
         isOpen={showPasswordConfirm}
         onClose={() => !isSubmitting && setShowPasswordConfirm(false)}
-        title="تأكيد التحديث"
+        title={hasExistingPassword ? "تأكيد التحديث" : "إنشاء كلمة مرور"}
       >
         <div className="space-y-4">
-          <p className="text-gray-600">
-            يرجى إدخال كلمة المرور الخاصة بك لتأكيد التحديث
-          </p>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              كلمة المرور (6 أرقام)
-            </label>
-            <div className="relative">
-              <Input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value.replace(/\D/g, '').slice(0, 6));
-                  setError('');
-                }}
-                placeholder="••••••"
-                maxLength={6}
-                dir="ltr"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
+          {isCheckingPassword ? (
+            <div className="text-center py-4">
+              <p className="text-gray-600">جارٍ التحميل...</p>
             </div>
-          </div>
+          ) : (
+            <>
+              {hasExistingPassword ? (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <AlertCircle className="w-4 h-4 inline ml-1" />
+                    يرجى إدخال كلمة المرور الخاصة بك لتأكيد التحديث
+                  </p>
+                </div>
+              ) : (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-800 mb-2">
+                    <AlertCircle className="w-4 h-4 inline ml-1" />
+                    <strong>مرحباً!</strong> هذه هي المرة الأولى التي تقوم فيها بتعديل بياناتك
+                  </p>
+                  <p className="text-sm text-green-700">
+                    يرجى إنشاء كلمة مرور من 6 أرقام لحماية حسابك. ستحتاج هذه الكلمة في كل مرة تريد تعديل بياناتك.
+                  </p>
+                </div>
+              )}
 
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-              <span className="text-sm text-red-700">{error}</span>
-            </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {hasExistingPassword ? 'كلمة المرور (6 أرقام)' : 'أنشئ كلمة مرور جديدة (6 أرقام)'}
+                </label>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value.replace(/\D/g, '').slice(0, 6));
+                      setError('');
+                    }}
+                    placeholder="••••••"
+                    maxLength={6}
+                    dir="ltr"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+
+              {!hasExistingPassword && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    تأكيد كلمة المرور
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value.replace(/\D/g, '').slice(0, 6));
+                        setError('');
+                      }}
+                      placeholder="••••••"
+                      maxLength={6}
+                      dir="ltr"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-sm text-red-700">{error}</span>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleConfirmWithPassword}
+                  disabled={
+                    password.length !== 6 ||
+                    isSubmitting ||
+                    (!hasExistingPassword && confirmPassword.length !== 6)
+                  }
+                  className="flex-1"
+                >
+                  {isSubmitting ? 'جارٍ الإرسال...' : hasExistingPassword ? 'تأكيد' : 'إنشاء وتأكيد'}
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowPasswordConfirm(false);
+                    setPassword('');
+                    setConfirmPassword('');
+                    setError('');
+                  }}
+                  variant="outline"
+                  disabled={isSubmitting}
+                >
+                  إلغاء
+                </Button>
+              </div>
+            </>
           )}
-
-          <div className="flex gap-3">
-            <Button
-              onClick={handleConfirmWithPassword}
-              disabled={password.length !== 6 || isSubmitting}
-              className="flex-1"
-            >
-              {isSubmitting ? 'جارٍ الإرسال...' : 'تأكيد'}
-            </Button>
-            <Button
-              onClick={() => setShowPasswordConfirm(false)}
-              variant="outline"
-              disabled={isSubmitting}
-            >
-              إلغاء
-            </Button>
-          </div>
         </div>
       </Modal>
     </>

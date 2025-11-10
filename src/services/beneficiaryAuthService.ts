@@ -81,6 +81,32 @@ export const beneficiaryAuthService = {
     return data as BeneficiaryAuthData | null;
   },
 
+  async hasPassword(beneficiaryId: string): Promise<boolean> {
+    if (!supabase) throw new Error('Supabase not initialized');
+
+    const { data, error } = await supabase
+      .from('beneficiary_auth')
+      .select('id')
+      .eq('beneficiary_id', beneficiaryId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data !== null;
+  },
+
+  async getAuthByBeneficiaryId(beneficiaryId: string): Promise<BeneficiaryAuthData | null> {
+    if (!supabase) throw new Error('Supabase not initialized');
+
+    const { data, error } = await supabase
+      .from('beneficiary_auth')
+      .select('*')
+      .eq('beneficiary_id', beneficiaryId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data as BeneficiaryAuthData | null;
+  },
+
   async createAuth(beneficiaryId: string, nationalId: string, passwordHash: string): Promise<BeneficiaryAuthData> {
     if (!supabase) throw new Error('Supabase not initialized');
 

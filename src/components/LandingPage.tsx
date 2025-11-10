@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Shield, Search, Package, CheckCircle, Clock, AlertCircle, MessageCircle, Phone, ArrowLeft, HelpCircle, Users, Building2, Heart, LogIn, Info, ChevronDown, PlayCircle, Lightbulb, UserPlus } from 'lucide-react';
+import { Shield, Search, Package, CheckCircle, Clock, AlertCircle, MessageCircle, Phone, HelpCircle, Users, Building2, Heart, Info, ChevronDown, Lightbulb, UserPlus } from 'lucide-react';
 import { beneficiaryAuthService } from '../services/beneficiaryAuthService';
 import { Button, Input, Card, SearchLoadingSkeleton } from './ui';
-import BeneficiaryPortalModal from './BeneficiaryPortalModal';
 import RegistrationWizard from './RegistrationWizard';
 import type { Database } from '../types/database';
 
@@ -36,7 +35,6 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
   const [fullBeneficiary, setFullBeneficiary] = useState<Beneficiary | null>(null);
   const [error, setError] = useState('');
   const [showAdminMenu, setShowAdminMenu] = useState(false);
-  const [showPortalModal, setShowPortalModal] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showExampleImage, setShowExampleImage] = useState(false);
   const [showRegistrationWizard, setShowRegistrationWizard] = useState(false);
@@ -64,9 +62,6 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
     }
   };
 
-  const handleOpenPortalModal = () => {
-    setShowPortalModal(true);
-  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && nationalId.length === 9) {
@@ -528,29 +523,6 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
                     )}
                   </div>
 
-                  {/* Additional Actions */}
-                  <div className="mt-6 pt-6 border-t border-gray-200">
-                    <p className="text-sm text-gray-600 mb-4">
-                      للوصول إلى معلومات أكثر تفصيلاً وإدارة حسابك:
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <Button
-                        onClick={handleOpenPortalModal}
-                        className="flex-1"
-                      >
-                        <LogIn className="w-5 h-5 ml-2" />
-                        تسجيل الدخول إلى حسابي
-                      </Button>
-                      <Button
-                        onClick={() => onNavigateTo('beneficiary')}
-                        variant="outline"
-                        className="flex-1"
-                      >
-                        <ArrowLeft className="w-4 h-4 mr-2" />
-                        فتح في صفحة كاملة
-                      </Button>
-                    </div>
-                  </div>
                 </Card>
               </>
             ) : (
@@ -653,23 +625,6 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
               </div>
             </Card>
 
-            <Card hover onClick={() => onNavigateTo('beneficiary')}>
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <Users className="w-6 h-6 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 mb-2">بوابة المستفيدين</h3>
-                  <p className="text-sm text-gray-600 mb-3">
-                    سجل دخولك للوصول إلى معلومات أكثر تفصيلاً
-                  </p>
-                  <button className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
-                    تسجيل الدخول
-                    <ArrowLeft className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </Card>
           </div>
         )}
 
@@ -687,7 +642,7 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
               <div>
                 <h4 className="font-semibold text-gray-900 mb-1">هل يمكنني تغيير عنوان التسليم؟</h4>
                 <p className="text-sm text-gray-600">
-                  نعم، سجل دخولك إلى بوابة المستفيدين لتحديث معلوماتك الشخصية
+                  نعم، ابحث عن رقم هويتك ثم يمكنك تحديث معلوماتك الشخصية
                 </p>
               </div>
               <div>
@@ -730,12 +685,6 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
         </div>
       </footer>
 
-      <BeneficiaryPortalModal
-        isOpen={showPortalModal}
-        onClose={() => setShowPortalModal(false)}
-        nationalId={nationalId}
-        initialBeneficiary={fullBeneficiary}
-      />
 
       {showRegistrationWizard && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
