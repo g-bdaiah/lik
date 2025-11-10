@@ -277,5 +277,58 @@ export const accountStatusService = {
       }
     };
     return configs[status] || configs.needs_update;
+  },
+
+  async getAllBeneficiariesForReview(): Promise<Beneficiary[]> {
+    if (!supabase) throw new Error('Supabase not initialized');
+
+    const { data, error } = await supabase
+      .from('beneficiaries')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []) as Beneficiary[];
+  },
+
+  async updateBeneficiaryStatus(
+    beneficiaryId: string,
+    verificationStatus: VerificationStatus,
+    verificationNotes: string,
+    qualificationStatus: QualificationStatus,
+    qualificationNotes: string,
+    suggestedOrganizationIds: string[],
+    updatedBy: string
+  ): Promise<void> {
+    if (!supabase) throw new Error('Supabase not initialized');
+
+    const { error } = await supabase
+      .from('beneficiaries')
+      .update({
+        verification_status: verificationStatus,
+        verification_notes: verificationNotes,
+        qualification_status: qualificationStatus,
+        qualification_notes: qualificationNotes,
+        suggested_organizations_ids: suggestedOrganizationIds,
+        updated_by: updatedBy,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', beneficiaryId);
+
+    if (error) throw error;
+
+    await this.createNotification(
+      beneficiaryId,
+      'verification_status_change',
+      'تحديث حالة الحساب',
+      this.getVerificationStatusMessage(verificationStatus, verificationNotes)
+    );
+
+    await this.createNotification(
+      beneficiaryId,
+      'qualification_status_change',
+      'تحديث حالة الأهلية',
+      this.getQualificationStatusMessage(qualificationStatus, qualificationNotes)
+    );
   }
 };

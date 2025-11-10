@@ -29,6 +29,8 @@ import BackupManagementPage from './pages/BackupManagementPage';
 import AlertsManagementPage from './pages/AlertsManagementPage';
 import MessagesSettingsPage from './pages/MessagesSettingsPage';
 import BeneficiaryPortalSettings from './pages/BeneficiaryPortalSettings';
+import BeneficiaryStatusManagement from './pages/BeneficiaryStatusManagement';
+import DataUpdateRequestsPage from './pages/DataUpdateRequestsPage';
 
 interface NavItem {
   id: string;
@@ -82,6 +84,8 @@ export default function AdminDashboard({ activeTab, setActiveTab }: AdminDashboa
       icon: Users,
       children: [
         { id: 'beneficiaries-list', name: 'قائمة المستفيدين', icon: Users },
+        { id: 'beneficiary-status', name: 'إدارة حالات التوثيق', icon: CheckCircle },
+        { id: 'data-updates', name: 'طلبات تحديث البيانات', icon: FileText },
         { id: 'status-management', name: 'إدارة الحالات', icon: UserCheck },
         { id: 'delayed', name: 'المتأخرين', icon: Clock },
         { id: 'activity-log', name: 'سجل النشاط', icon: Activity }
@@ -318,6 +322,14 @@ export default function AdminDashboard({ activeTab, setActiveTab }: AdminDashboa
           />
         </div>
       );
+    }
+
+    if (activeTab === 'beneficiary-status') {
+      return <BeneficiaryStatusManagement />;
+    }
+
+    if (activeTab === 'data-updates') {
+      return <DataUpdateRequestsPage />;
     }
 
     if (activeTab === 'status-management') {

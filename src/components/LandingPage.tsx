@@ -386,6 +386,101 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
                     </Button>
                   </div>
 
+                  {/* Account Status Section */}
+                  <div className="mb-6 grid md:grid-cols-2 gap-4">
+                    {/* Verification Status */}
+                    <div className={`p-4 rounded-lg border-2 ${
+                      searchResult.beneficiary.verification_status === 'verified'
+                        ? 'bg-green-50 border-green-200'
+                        : searchResult.beneficiary.verification_status === 'under_review'
+                        ? 'bg-yellow-50 border-yellow-200'
+                        : 'bg-red-50 border-red-200'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        {searchResult.beneficiary.verification_status === 'verified' ? (
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                        ) : searchResult.beneficiary.verification_status === 'under_review' ? (
+                          <Clock className="w-5 h-5 text-yellow-600" />
+                        ) : (
+                          <AlertCircle className="w-5 h-5 text-red-600" />
+                        )}
+                        <h4 className={`font-semibold ${
+                          searchResult.beneficiary.verification_status === 'verified'
+                            ? 'text-green-900'
+                            : searchResult.beneficiary.verification_status === 'under_review'
+                            ? 'text-yellow-900'
+                            : 'text-red-900'
+                        }`}>
+                          حالة التوثيق
+                        </h4>
+                      </div>
+                      <p className={`text-sm ${
+                        searchResult.beneficiary.verification_status === 'verified'
+                          ? 'text-green-700'
+                          : searchResult.beneficiary.verification_status === 'under_review'
+                          ? 'text-yellow-700'
+                          : 'text-red-700'
+                      }`}>
+                        {searchResult.beneficiary.verification_status === 'verified'
+                          ? 'حسابك موثق ✓'
+                          : searchResult.beneficiary.verification_status === 'under_review'
+                          ? 'قيد المراجعة'
+                          : 'يحتاج تحديث'}
+                      </p>
+                      {searchResult.beneficiary.verification_notes && (
+                        <p className="text-xs text-gray-600 mt-2">
+                          {searchResult.beneficiary.verification_notes}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Qualification Status */}
+                    <div className={`p-4 rounded-lg border-2 ${
+                      searchResult.beneficiary.qualification_status === 'qualified'
+                        ? 'bg-green-50 border-green-200'
+                        : searchResult.beneficiary.qualification_status === 'needs_update'
+                        ? 'bg-blue-50 border-blue-200'
+                        : 'bg-gray-50 border-gray-200'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        {searchResult.beneficiary.qualification_status === 'qualified' ? (
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                        ) : searchResult.beneficiary.qualification_status === 'needs_update' ? (
+                          <Info className="w-5 h-5 text-blue-600" />
+                        ) : (
+                          <AlertCircle className="w-5 h-5 text-gray-600" />
+                        )}
+                        <h4 className={`font-semibold ${
+                          searchResult.beneficiary.qualification_status === 'qualified'
+                            ? 'text-green-900'
+                            : searchResult.beneficiary.qualification_status === 'needs_update'
+                            ? 'text-blue-900'
+                            : 'text-gray-900'
+                        }`}>
+                          حالة الأهلية
+                        </h4>
+                      </div>
+                      <p className={`text-sm ${
+                        searchResult.beneficiary.qualification_status === 'qualified'
+                          ? 'text-green-700'
+                          : searchResult.beneficiary.qualification_status === 'needs_update'
+                          ? 'text-blue-700'
+                          : 'text-gray-700'
+                      }`}>
+                        {searchResult.beneficiary.qualification_status === 'qualified'
+                          ? 'مؤهل للمساعدات ✓'
+                          : searchResult.beneficiary.qualification_status === 'needs_update'
+                          ? 'يحتاج تحديث البيانات'
+                          : 'غير مؤهل حالياً'}
+                      </p>
+                      {searchResult.beneficiary.qualification_notes && (
+                        <p className="text-xs text-gray-600 mt-2">
+                          {searchResult.beneficiary.qualification_notes}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Packages List */}
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900 mb-4">
