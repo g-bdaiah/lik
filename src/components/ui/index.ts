@@ -6,6 +6,7 @@ export { default as Badge } from './Badge';
 export { default as Modal } from './Modal';
 export { default as StatCard } from './StatCard';
 export { default as ConfirmationModal } from './ConfirmationModal';
+export { default as Tabs } from './Tabs';
 export { ImageUpload } from './ImageUpload';
 export {
   LoadingSkeleton as default,

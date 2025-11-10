@@ -171,6 +171,16 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
                         <p className="text-xs text-gray-600">حسابي الشخصي</p>
                       </div>
                     </button>
+                    <button
+                      onClick={() => onNavigateTo('search')}
+                      className="w-full px-4 py-3 text-right hover:bg-green-50 flex items-center gap-3 transition-colors"
+                    >
+                      <Search className="w-4 h-4 text-green-600" />
+                      <div>
+                        <p className="font-medium text-gray-900">البحث المتقدم</p>
+                        <p className="text-xs text-gray-600">بحث تفصيلي عن المستفيدين</p>
+                      </div>
+                    </button>
                   </div>
                 </div>
               )}
