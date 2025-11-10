@@ -2,12 +2,9 @@ import { supabase } from '../lib/supabaseClient';
 
 export interface SMSSettings {
   id: string;
-  username: string;
-  password_encrypted: string;
+  api_key_encrypted: string;
   sender_name: string;
-  api_key_encrypted?: string;
   api_url: string;
-  balance_check_url: string;
   max_daily_limit: number;
   current_daily_count: number;
   low_balance_threshold: number;
@@ -157,20 +154,23 @@ export const smsService = {
     }
 
     try {
-      const username = settings.username;
-      const password = await this.decrypt(settings.password_encrypted);
+      const apiKey = await this.decrypt(settings.api_key_encrypted);
 
-      const url = `${settings.balance_check_url}&user=${encodeURIComponent(username)}&pass=${encodeURIComponent(password)}`;
-
-      const response = await fetch(url, {
-        method: 'GET',
+      const response = await fetch('https://tweetsms.ps/api.php/maan/balance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          api_key: apiKey,
+        }),
       });
 
-      const text = await response.text();
+      const result = await response.json();
 
-      const balance = parseInt(text);
+      if (result.code === 999 && result.balance !== undefined) {
+        const balance = parseInt(result.balance);
 
-      if (!isNaN(balance)) {
         await supabase
           .from('sms_api_settings')
           .update({
@@ -181,7 +181,7 @@ export const smsService = {
 
         return { success: true, balance };
       } else {
-        return { success: false, error: text };
+        return { success: false, error: result.message || 'Failed to get balance' };
       }
     } catch (error) {
       return {
@@ -238,28 +238,25 @@ export const smsService = {
     }
 
     try {
-      const username = settings.username;
-      const password = await this.decrypt(settings.password_encrypted);
+      const apiKey = await this.decrypt(settings.api_key_encrypted);
       const sender = settings.sender_name;
 
-      const params = new URLSearchParams({
-        comm: 'sendsms',
-        user: username,
-        pass: password,
-        to: formattedPhone,
-        message: message,
-        sender: sender,
+      const response = await fetch('https://tweetsms.ps/api.php/maan/sendsms', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          api_key: apiKey,
+          name: sender,
+          mobile: formattedPhone,
+          message: message,
+        }),
       });
 
-      const response = await fetch(`${settings.api_url}?${params.toString()}`, {
-        method: 'GET',
-      });
-
-      const resultText = await response.text();
-
-      const resultParts = resultText.split(':');
-      const resultCode = resultParts[0];
-      const smsId = resultParts[1];
+      const result = await response.json();
+      const resultCode = result.code?.toString() || '-999';
+      const smsId = result.message_id?.toString();
 
       let status: 'sent' | 'failed' = 'failed';
       let errorMessage: string | undefined;

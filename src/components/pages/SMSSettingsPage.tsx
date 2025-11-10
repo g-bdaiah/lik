@@ -8,19 +8,15 @@ export default function SMSSettingsPage() {
   const { logInfo, logError } = useErrorLogger();
   const [activeTab, setActiveTab] = useState<'settings' | 'test' | 'logs' | 'statistics'>('settings');
   const [settings, setSettings] = useState<Partial<SMSSettings>>({
-    username: '',
-    password_encrypted: '',
-    sender_name: '',
     api_key_encrypted: '',
-    api_url: 'http://www.tweetsms.ps/api.php',
-    balance_check_url: 'http://www.tweetsms.ps/api.php?comm=chk_balance',
+    sender_name: '',
+    api_url: 'https://tweetsms.ps/api.php/maan',
     max_daily_limit: 1000,
     low_balance_threshold: 100,
     low_balance_alert_enabled: true,
     is_active: false,
   });
 
-  const [showPassword, setShowPassword] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -76,19 +72,15 @@ export default function SMSSettingsPage() {
   const handleSaveSettings = async () => {
     setSaving(true);
     try {
-      if (!settings.username || !settings.password_encrypted || !settings.sender_name) {
+      if (!settings.api_key_encrypted || !settings.sender_name) {
         showNotification('يرجى ملء جميع الحقول المطلوبة', 'error');
         return;
       }
 
-      const encryptedPassword = await smsService.encrypt(settings.password_encrypted);
-      const encryptedApiKey = settings.api_key_encrypted
-        ? await smsService.encrypt(settings.api_key_encrypted)
-        : undefined;
+      const encryptedApiKey = await smsService.encrypt(settings.api_key_encrypted);
 
       await smsService.saveSettings({
         ...settings,
-        password_encrypted: encryptedPassword,
         api_key_encrypted: encryptedApiKey,
       });
 
@@ -316,65 +308,29 @@ export default function SMSSettingsPage() {
         <div className="p-6">
           {activeTab === 'settings' && (
             <div className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    اسم المستخدم <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    type="text"
-                    value={settings.username || ''}
-                    onChange={(e) => setSettings({ ...settings, username: e.target.value })}
-                    placeholder="أدخل اسم المستخدم"
-                    disabled={loading}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    كلمة المرور <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Input
-                      type={showPassword ? 'text' : 'password'}
-                      value={settings.password_encrypted || ''}
-                      onChange={(e) => setSettings({ ...settings, password_encrypted: e.target.value })}
-                      placeholder="أدخل كلمة المرور"
-                      disabled={loading}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <div className="flex items-start space-x-3 space-x-reverse">
+                  <AlertTriangle className="w-5 h-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium text-blue-900 mb-1">كيفية الحصول على API Key</h4>
+                    <p className="text-sm text-blue-700">
+                      يمكنك الحصول على API Key من حسابك في TweetSMS. قم بتسجيل الدخول إلى لوحة التحكم الخاصة بك على موقع TweetSMS وانسخ API Key من قسم الإعدادات.
+                    </p>
                   </div>
                 </div>
+              </div>
 
-                <div>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    اسم المرسل <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    type="text"
-                    value={settings.sender_name || ''}
-                    onChange={(e) => setSettings({ ...settings, sender_name: e.target.value })}
-                    placeholder="أدخل اسم المرسل"
-                    disabled={loading}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    API Key (اختياري)
+                    API Key <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <Input
                       type={showApiKey ? 'text' : 'password'}
                       value={settings.api_key_encrypted || ''}
                       onChange={(e) => setSettings({ ...settings, api_key_encrypted: e.target.value })}
-                      placeholder="أدخل API Key"
+                      placeholder="أدخل API Key من حساب TweetSMS"
                       disabled={loading}
                     />
                     <button
@@ -385,6 +341,25 @@ export default function SMSSettingsPage() {
                       {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    مثال: 04e56a90592de205c8c0938efc7b52a5f564911f9f12beeb0258271897414f59
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    اسم المرسل <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    type="text"
+                    value={settings.sender_name || ''}
+                    onChange={(e) => setSettings({ ...settings, sender_name: e.target.value })}
+                    placeholder="أدخل اسم المرسل (Name)"
+                    disabled={loading}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    الاسم الذي سيظهر للمستلم
+                  </p>
                 </div>
 
                 <div>
