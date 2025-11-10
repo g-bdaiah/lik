@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Shield, Search, Package, CheckCircle, Clock, AlertCircle, MessageCircle, Phone, ArrowLeft, HelpCircle, Users, Building2, Heart, LogIn } from 'lucide-react';
+import { Shield, Search, Package, CheckCircle, Clock, AlertCircle, MessageCircle, Phone, ArrowLeft, HelpCircle, Users, Building2, Heart, LogIn, Info, ChevronDown, PlayCircle, Lightbulb } from 'lucide-react';
 import { beneficiaryAuthService } from '../services/beneficiaryAuthService';
-import { Button, Input, Card } from './ui';
+import { Button, Input, Card, SearchLoadingSkeleton } from './ui';
 import BeneficiaryPortalModal from './BeneficiaryPortalModal';
 import type { Database } from '../types/database';
 
@@ -36,6 +36,8 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
   const [error, setError] = useState('');
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showPortalModal, setShowPortalModal] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [showExampleImage, setShowExampleImage] = useState(false);
 
   const handleSearch = async () => {
     if (!beneficiaryAuthService.validateNationalId(nationalId)) {
@@ -195,9 +197,53 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
           <Card className="mb-8">
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  رقم الهوية الوطني (9 أرقام)
+                <label className="block text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <span>رقم الهوية الوطني</span>
+                  <span className="text-sm font-normal text-gray-500">(9 أرقام)</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowExampleImage(!showExampleImage)}
+                    className="text-blue-600 hover:text-blue-700 text-sm flex items-center gap-1"
+                    title="عرض مثال على رقم الهوية"
+                  >
+                    <Info className="w-4 h-4" />
+                    مثال
+                  </button>
                 </label>
+
+                {showExampleImage && (
+                  <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl border-2 border-blue-200">
+                    <div className="flex items-start gap-3">
+                      <Lightbulb className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
+                      <div className="flex-1">
+                        <h4 className="font-bold text-blue-900 mb-2">أين أجد رقم الهوية؟</h4>
+                        <div className="space-y-2 text-sm text-blue-800">
+                          <p className="flex items-start gap-2">
+                            <span className="text-blue-600 font-bold">•</span>
+                            <span>انظر في <strong>بطاقة الهوية الفلسطينية</strong></span>
+                          </p>
+                          <p className="flex items-start gap-2">
+                            <span className="text-blue-600 font-bold">•</span>
+                            <span>الرقم يتكون من <strong>9 أرقام فقط</strong></span>
+                          </p>
+                          <p className="flex items-start gap-2">
+                            <span className="text-blue-600 font-bold">•</span>
+                            <span>مثال: <code className="px-2 py-1 bg-white rounded text-blue-900 font-mono font-bold">900123456</code></span>
+                          </p>
+                          <div className="mt-3 p-3 bg-white rounded-lg border border-blue-300">
+                            <p className="text-xs text-gray-600 mb-1">بطاقة الهوية - مثال توضيحي:</p>
+                            <div className="bg-gray-100 rounded p-3 border-2 border-dashed border-gray-400">
+                              <div className="text-center">
+                                <p className="text-xs text-gray-500 mb-1">الرقم الوطني</p>
+                                <p className="text-2xl font-bold text-gray-800 font-mono tracking-widest">900123456</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="flex gap-3">
                   <Input
                     type="text"
@@ -207,10 +253,10 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
                       setError('');
                     }}
                     onKeyPress={handleKeyPress}
-                    placeholder="123456789"
+                    placeholder="اكتب 9 أرقام هنا"
                     maxLength={9}
                     dir="ltr"
-                    className="text-lg"
+                    className="text-2xl tracking-widest font-mono text-center"
                   />
                   <Button
                     onClick={handleSearch}
@@ -233,39 +279,84 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
               </div>
 
               {error && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                  <span className="text-sm text-red-700">{error}</span>
+                <div className="p-5 bg-red-50 border-2 border-red-300 rounded-xl shadow-sm">
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center flex-shrink-0">
+                      <AlertCircle className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-red-900 mb-1">هناك مشكلة!</h4>
+                      <p className="text-base text-red-800">{error}</p>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-red-200">
+                    <p className="text-sm text-gray-700 font-semibold mb-2">ماذا أفعل؟</p>
+                    <ul className="space-y-1 text-sm text-gray-600">
+                      <li>• تأكد من كتابة 9 أرقام بالضبط</li>
+                      <li>• تأكد من صحة رقم الهوية</li>
+                      <li>• أو اضغط على "مساعدة فورية" للتواصل معنا</li>
+                    </ul>
+                  </div>
                 </div>
               )}
 
-              {/* Instructions */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                  <HelpCircle className="w-5 h-5" />
-                  كيفية الاستخدام:
-                </h3>
-                <ol className="space-y-2 text-sm text-blue-800">
-                  <li className="flex items-start gap-2">
-                    <span className="font-bold">1.</span>
-                    <span>أدخل رقم هويتك الوطني المكون من 9 أرقام</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="font-bold">2.</span>
-                    <span>اضغط على زر "بحث" أو اضغط Enter</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="font-bold">3.</span>
-                    <span>ستظهر معلومات الطرود المخصصة لك وحالتها</span>
-                  </li>
-                </ol>
+              {/* Instructions - Enhanced for Non-Technical Users */}
+              <div className="bg-gradient-to-br from-green-50 to-blue-50 border-2 border-green-300 rounded-xl p-5 shadow-sm">
+                <button
+                  onClick={() => setShowHelp(!showHelp)}
+                  className="w-full flex items-center justify-between text-right mb-3"
+                >
+                  <h3 className="font-bold text-lg text-green-900 flex items-center gap-2">
+                    <HelpCircle className="w-6 h-6" />
+                    كيف أبحث عن معلوماتي؟
+                  </h3>
+                  <ChevronDown className={`w-5 h-5 text-green-700 transition-transform ${showHelp ? 'rotate-180' : ''}`} />
+                </button>
+
+                {showHelp && (
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-3 p-3 bg-white rounded-lg">
+                      <div className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center flex-shrink-0 font-bold">1</div>
+                      <div>
+                        <p className="font-semibold text-gray-900 mb-1">اكتب رقم هويتك</p>
+                        <p className="text-sm text-gray-600">الرقم موجود في بطاقة الهوية الفلسطينية (9 أرقام)</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 p-3 bg-white rounded-lg">
+                      <div className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center flex-shrink-0 font-bold">2</div>
+                      <div>
+                        <p className="font-semibold text-gray-900 mb-1">اضغط زر "بحث"</p>
+                        <p className="text-sm text-gray-600">أو اضغط Enter من لوحة المفاتيح</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 p-3 bg-white rounded-lg">
+                      <div className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center flex-shrink-0 font-bold">3</div>
+                      <div>
+                        <p className="font-semibold text-gray-900 mb-1">شاهد معلوماتك</p>
+                        <p className="text-sm text-gray-600">ستظهر جميع الطرود المخصصة لك مع حالة كل طرد</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-sm text-yellow-900 flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <span><strong>هل تحتاج مساعدة؟</strong> اضغط على زر "مساعدة فورية" أسفل الصفحة للتواصل معنا عبر واتساب</span>
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </Card>
         )}
 
+        {/* Loading State */}
+        {isSearching && (
+          <SearchLoadingSkeleton message="جاري البحث عن معلوماتك، يرجى الانتظار..." />
+        )}
+
         {/* Search Results */}
-        {searchResult && (
+        {searchResult && !isSearching && (
           <div className="space-y-6">
             {searchResult.found && searchResult.beneficiary ? (
               <>
@@ -361,24 +452,54 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
                 </Card>
               </>
             ) : (
-              <Card>
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <AlertCircle className="w-8 h-8 text-orange-600" />
+              <Card className="bg-gradient-to-br from-orange-50 to-yellow-50 border-2 border-orange-200">
+                <div className="text-center py-10">
+                  <div className="w-20 h-20 bg-orange-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-lg">
+                    <AlertCircle className="w-10 h-10 text-white" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">
-                    لم يتم العثور على بيانات
+                  <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                    لم نجد معلومات بهذا الرقم
                   </h3>
-                  <p className="text-gray-600 mb-6">
-                    {searchResult.message || 'رقم الهوية غير موجود في قاعدة البيانات'}
+                  <p className="text-lg text-gray-700 mb-6 max-w-md mx-auto leading-relaxed">
+                    {searchResult.message || 'رقم الهوية الذي أدخلته غير موجود في قاعدة بياناتنا'}
                   </p>
-                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                    <Button onClick={handleReset} variant="outline">
+
+                  <div className="bg-white rounded-xl p-6 mb-6 max-w-md mx-auto border-2 border-orange-300">
+                    <h4 className="font-bold text-gray-900 mb-3 flex items-center justify-center gap-2">
+                      <Lightbulb className="w-5 h-5 text-orange-600" />
+                      ماذا يمكنك أن تفعل؟
+                    </h4>
+                    <ul className="space-y-3 text-right">
+                      <li className="flex items-start gap-3">
+                        <span className="w-6 h-6 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">1</span>
+                        <span className="text-gray-700">تأكد من كتابة رقم الهوية بشكل صحيح (9 أرقام)</span>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="w-6 h-6 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">2</span>
+                        <span className="text-gray-700">جرب البحث مرة أخرى</span>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="w-6 h-6 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm">3</span>
+                        <span className="text-gray-700">تواصل مع فريق الدعم للمساعدة</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <Button
+                      onClick={handleReset}
+                      variant="outline"
+                      className="px-6 py-3 text-base font-bold"
+                    >
+                      <Search className="w-5 h-5 ml-2" />
                       بحث مرة أخرى
                     </Button>
-                    <Button onClick={handleWhatsAppSupport} variant="primary">
-                      <MessageCircle className="w-4 h-4 ml-2" />
-                      تواصل مع الدعم
+                    <Button
+                      onClick={handleWhatsAppSupport}
+                      className="px-6 py-3 text-base font-bold bg-green-600 hover:bg-green-700"
+                    >
+                      <MessageCircle className="w-5 h-5 ml-2" />
+                      تواصل معنا الآن
                     </Button>
                   </div>
                 </div>
@@ -387,25 +508,37 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
           </div>
         )}
 
+        {/* Instant Help Button - Prominent for Non-Technical Users */}
+        <div className="fixed bottom-6 left-6 z-50">
+          <button
+            onClick={handleWhatsAppSupport}
+            className="group bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 transition-all duration-300 hover:scale-105 animate-pulse hover:animate-none"
+          >
+            <MessageCircle className="w-6 h-6" />
+            <span className="font-bold text-lg">مساعدة فورية</span>
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-ping"></div>
+          </button>
+        </div>
+
         {/* Help Section */}
         {!searchResult && (
           <div className="grid md:grid-cols-2 gap-6 mt-8">
-            <Card hover>
+            <Card hover className="bg-gradient-to-br from-green-50 to-white border-2 border-green-200">
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <MessageCircle className="w-6 h-6 text-green-600" />
+                <div className="w-14 h-14 bg-green-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
+                  <MessageCircle className="w-7 h-7 text-white" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 mb-2">تحتاج مساعدة؟</h3>
-                  <p className="text-sm text-gray-600 mb-3">
-                    تواصل معنا عبر واتساب للحصول على الدعم الفوري
+                  <h3 className="font-bold text-gray-900 mb-2 text-lg">هل تحتاج مساعدة؟</h3>
+                  <p className="text-base text-gray-700 mb-4 leading-relaxed">
+                    فريقنا جاهز للمساعدة على مدار الساعة عبر واتساب
                   </p>
                   <button
                     onClick={handleWhatsAppSupport}
-                    className="text-sm text-green-600 hover:text-green-700 font-medium flex items-center gap-1"
+                    className="bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-colors shadow-md hover:shadow-lg"
                   >
-                    فتح واتساب
-                    <ArrowLeft className="w-4 h-4" />
+                    <MessageCircle className="w-5 h-5" />
+                    تواصل الآن عبر واتساب
                   </button>
                 </div>
               </div>

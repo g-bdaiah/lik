@@ -7,6 +7,12 @@ export { default as Modal } from './Modal';
 export { default as StatCard } from './StatCard';
 export { default as ConfirmationModal } from './ConfirmationModal';
 export { ImageUpload } from './ImageUpload';
+export {
+  LoadingSkeleton as default,
+  SearchLoadingSkeleton,
+  PackageCardSkeleton,
+  BeneficiaryInfoSkeleton
+} from './LoadingSkeleton';
 
 // أنواع TypeScript
 export type { default as ButtonProps } from './Button';

@@ -1,17 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/AuthContext';
 import { AlertsProvider } from './context/AlertsContext';
-import MockLogin from './components/MockLogin';
-import LandingPage from './components/LandingPage';
-import AdminDashboard from './components/AdminDashboard';
-import OrganizationsDashboard from './components/OrganizationsDashboard';
-import FamiliesDashboard from './components/FamiliesDashboard';
-import BeneficiaryPortal from './components/BeneficiaryPortal';
-import { ErrorConsole } from './components/ErrorConsole';
 import { Bug } from 'lucide-react';
 import type { SystemUser } from './data/mockData';
+import { SearchLoadingSkeleton } from './components/ui';
+
+// Lazy load heavy components for better performance
+const MockLogin = lazy(() => import('./components/MockLogin'));
+const LandingPage = lazy(() => import('./components/LandingPage'));
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+const OrganizationsDashboard = lazy(() => import('./components/OrganizationsDashboard'));
+const FamiliesDashboard = lazy(() => import('./components/FamiliesDashboard'));
+const BeneficiaryPortal = lazy(() => import('./components/BeneficiaryPortal'));
+const ErrorConsole = lazy(() => import('./components/ErrorConsole').then(module => ({ default: module.ErrorConsole })));
 
 type PageType = 'landing' | 'admin' | 'organizations' | 'families' | 'beneficiary';
 
@@ -92,42 +95,46 @@ function AppContent({
 
   if (!loggedInUser && currentPage !== 'landing') {
     return (
-      <ErrorBoundary componentName="MockLogin">
-        <MockLogin onLogin={handleLogin} />
-      </ErrorBoundary>
+      <Suspense fallback={<SearchLoadingSkeleton message="جاري تحميل صفحة تسجيل الدخول..." />}>
+        <ErrorBoundary componentName="MockLogin">
+          <MockLogin onLogin={handleLogin} />
+        </ErrorBoundary>
+      </Suspense>
     );
   }
 
   return (
     <div className="min-h-screen">
-      {currentPage === 'landing' && (
-        <ErrorBoundary componentName="LandingPage">
-          <LandingPage onNavigateTo={handleNavigateTo} />
-        </ErrorBoundary>
-      )}
-      {currentPage === 'admin' && loggedInUser && (
-        <ErrorBoundary componentName="AdminDashboard">
-          <AdminDashboard 
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-          />
-        </ErrorBoundary>
-      )}
-      {currentPage === 'organizations' && loggedInUser && (
-        <ErrorBoundary componentName="OrganizationsDashboard">
-          <OrganizationsDashboard onNavigateBack={handleNavigateBack} />
-        </ErrorBoundary>
-      )}
-      {currentPage === 'families' && loggedInUser && (
-        <ErrorBoundary componentName="FamiliesDashboard">
-          <FamiliesDashboard onNavigateBack={handleNavigateBack} />
-        </ErrorBoundary>
-      )}
-      {currentPage === 'beneficiary' && (
-        <ErrorBoundary componentName="BeneficiaryPortal">
-          <BeneficiaryPortal onBack={handleNavigateBack} />
-        </ErrorBoundary>
-      )}
+      <Suspense fallback={<SearchLoadingSkeleton message="جاري تحميل الصفحة..." />}>
+        {currentPage === 'landing' && (
+          <ErrorBoundary componentName="LandingPage">
+            <LandingPage onNavigateTo={handleNavigateTo} />
+          </ErrorBoundary>
+        )}
+        {currentPage === 'admin' && loggedInUser && (
+          <ErrorBoundary componentName="AdminDashboard">
+            <AdminDashboard
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+            />
+          </ErrorBoundary>
+        )}
+        {currentPage === 'organizations' && loggedInUser && (
+          <ErrorBoundary componentName="OrganizationsDashboard">
+            <OrganizationsDashboard onNavigateBack={handleNavigateBack} />
+          </ErrorBoundary>
+        )}
+        {currentPage === 'families' && loggedInUser && (
+          <ErrorBoundary componentName="FamiliesDashboard">
+            <FamiliesDashboard onNavigateBack={handleNavigateBack} />
+          </ErrorBoundary>
+        )}
+        {currentPage === 'beneficiary' && (
+          <ErrorBoundary componentName="BeneficiaryPortal">
+            <BeneficiaryPortal onBack={handleNavigateBack} />
+          </ErrorBoundary>
+        )}
+      </Suspense>
 
       {process.env.NODE_ENV === 'development' && (
         <>
@@ -138,11 +145,13 @@ function AppContent({
           >
             <Bug className="w-4 h-4" />
           </button>
-          
-          <ErrorConsole 
-            isOpen={showErrorConsole} 
-            onClose={() => setShowErrorConsole(false)} 
-          />
+
+          <Suspense fallback={null}>
+            <ErrorConsole
+              isOpen={showErrorConsole}
+              onClose={() => setShowErrorConsole(false)}
+            />
+          </Suspense>
         </>
       )}
 
