@@ -112,48 +112,33 @@ export const smsService = {
   async saveSettings(settings: Partial<SMSSettings>): Promise<SMSSettings> {
     if (!supabase) throw new Error('Supabase not initialized');
 
-    const existingSettings = await this.getSettings();
-
-    if (existingSettings) {
-      const { data, error } = await supabase
-        .from('sms_api_settings')
-        .update({
-          ...settings,
-          updated_at: new Date().toISOString(),
-          updated_by: 'admin',
-        })
-        .eq('id', existingSettings.id)
-        .select()
-        .single();
+    try {
+      const { data, error } = await supabase.rpc('upsert_sms_settings', {
+        p_api_key_encrypted: settings.api_key_encrypted || '',
+        p_sender_name: settings.sender_name || '',
+        p_api_url: settings.api_url || 'https://tweetsms.ps/api.php/maan',
+        p_max_daily_limit: settings.max_daily_limit || 1000,
+        p_low_balance_threshold: settings.low_balance_threshold || 100,
+        p_low_balance_alert_enabled: settings.low_balance_alert_enabled !== false,
+        p_is_active: settings.is_active !== false,
+        p_notes: settings.notes || '',
+      });
 
       if (error) {
-        console.error('Error updating SMS settings:', error);
-        throw new Error(`Failed to update settings: ${error.message}`);
+        console.error('Error calling upsert_sms_settings:', error);
+        throw new Error(`Failed to save settings: ${error.message}`);
       }
-      return data as SMSSettings;
-    } else {
-      const { data, error } = await supabase
-        .from('sms_api_settings')
-        .insert({
-          api_key_encrypted: settings.api_key_encrypted || '',
-          sender_name: settings.sender_name || '',
-          api_url: settings.api_url || 'https://tweetsms.ps/api.php/maan',
-          max_daily_limit: settings.max_daily_limit || 1000,
-          current_daily_count: 0,
-          low_balance_threshold: settings.low_balance_threshold || 100,
-          low_balance_alert_enabled: settings.low_balance_alert_enabled !== false,
-          is_active: settings.is_active !== false,
-          created_by: 'admin',
-          updated_by: 'admin',
-        })
-        .select()
-        .single();
 
-      if (error) {
-        console.error('Error inserting SMS settings:', error);
-        throw new Error(`Failed to create settings: ${error.message}`);
+      if (!data || !data.success) {
+        const errorMsg = data?.error || 'Unknown error occurred';
+        console.error('upsert_sms_settings returned error:', errorMsg);
+        throw new Error(`Failed to save settings: ${errorMsg}`);
       }
-      return data as SMSSettings;
+
+      return data.data as SMSSettings;
+    } catch (error) {
+      console.error('Exception in saveSettings:', error);
+      throw error instanceof Error ? error : new Error('Failed to save settings');
     }
   },
 
