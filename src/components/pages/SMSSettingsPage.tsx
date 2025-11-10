@@ -74,6 +74,7 @@ export default function SMSSettingsPage() {
     try {
       if (!settings.api_key_encrypted || !settings.sender_name) {
         showNotification('يرجى ملء جميع الحقول المطلوبة', 'error');
+        setSaving(false);
         return;
       }
 
@@ -88,8 +89,10 @@ export default function SMSSettingsPage() {
       logInfo('تم حفظ إعدادات SMS', 'SMSSettingsPage');
       await loadSettings();
     } catch (error) {
+      console.error('Error saving SMS settings:', error);
       logError(error as Error, 'SMSSettingsPage.handleSaveSettings');
-      showNotification('فشل حفظ الإعدادات', 'error');
+      const errorMessage = error instanceof Error ? error.message : 'فشل حفظ الإعدادات';
+      showNotification(errorMessage, 'error');
     } finally {
       setSaving(false);
     }

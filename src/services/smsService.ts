@@ -59,17 +59,12 @@ export interface BalanceResponse {
 
 export const smsService = {
   async encrypt(text: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(text);
-    const hash = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hash));
-    return btoa(String.fromCharCode(...hashArray));
+    return btoa(encodeURIComponent(text));
   },
 
   async decrypt(encrypted: string): Promise<string> {
     try {
-      const decoded = atob(encrypted);
-      return decoded;
+      return decodeURIComponent(atob(encrypted));
     } catch {
       return encrypted;
     }
@@ -106,7 +101,8 @@ export const smsService = {
     const { data, error } = await supabase
       .from('sms_api_settings')
       .select('*')
-      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (error) throw error;
@@ -124,24 +120,39 @@ export const smsService = {
         .update({
           ...settings,
           updated_at: new Date().toISOString(),
+          updated_by: 'admin',
         })
         .eq('id', existingSettings.id)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating SMS settings:', error);
+        throw new Error(`Failed to update settings: ${error.message}`);
+      }
       return data as SMSSettings;
     } else {
       const { data, error } = await supabase
         .from('sms_api_settings')
         .insert({
-          ...settings,
-          is_active: true,
+          api_key_encrypted: settings.api_key_encrypted || '',
+          sender_name: settings.sender_name || '',
+          api_url: settings.api_url || 'https://tweetsms.ps/api.php/maan',
+          max_daily_limit: settings.max_daily_limit || 1000,
+          current_daily_count: 0,
+          low_balance_threshold: settings.low_balance_threshold || 100,
+          low_balance_alert_enabled: settings.low_balance_alert_enabled !== false,
+          is_active: settings.is_active !== false,
+          created_by: 'admin',
+          updated_by: 'admin',
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error inserting SMS settings:', error);
+        throw new Error(`Failed to create settings: ${error.message}`);
+      }
       return data as SMSSettings;
     }
   },
@@ -149,8 +160,12 @@ export const smsService = {
   async checkBalance(): Promise<BalanceResponse> {
     const settings = await this.getSettings();
 
-    if (!settings || !settings.is_active) {
+    if (!settings) {
       return { success: false, error: 'SMS service not configured' };
+    }
+
+    if (!settings.is_active) {
+      return { success: false, error: 'SMS service is not active' };
     }
 
     try {
