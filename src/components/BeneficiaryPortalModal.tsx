@@ -2,11 +2,16 @@ import React, { useState, useEffect } from 'react';
 import {
   X, User, Package, Eye, EyeOff, Lock, CheckCircle, AlertCircle,
   Clock, Upload, MapPin, Phone, Edit2, Save, Shield, Camera,
-  FileText, Calendar, IdCard
+  FileText, Calendar, IdCard, Bell, Activity
 } from 'lucide-react';
 import { beneficiaryAuthService } from '../services/beneficiaryAuthService';
 import { packagesService } from '../services/supabaseRealService';
+import { notificationService } from '../services/notificationService';
 import { Button, Input, Card } from './ui';
+import AccountStatusTab from './portal/AccountStatusTab';
+import MyDataTab from './portal/MyDataTab';
+import ActivityLogTab from './portal/ActivityLogTab';
+import NotificationsDropdown from './portal/NotificationsDropdown';
 import type { Database } from '../types/database';
 
 type Beneficiary = Database['public']['Tables']['beneficiaries']['Row'];
@@ -20,7 +25,7 @@ interface BeneficiaryPortalModalProps {
 }
 
 type ModalStep = 'pin_login' | 'create_pin' | 'dashboard';
-type DashboardTab = 'profile' | 'documents' | 'packages' | 'security';
+type DashboardTab = 'profile' | 'status' | 'mydata' | 'packages' | 'activity' | 'security';
 
 interface ModalState {
   step: ModalStep;
@@ -54,12 +59,32 @@ export default function BeneficiaryPortalModal({
   const [editedData, setEditedData] = useState<Partial<Beneficiary>>({});
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
     if (isOpen && initialBeneficiary) {
       checkAuthStatus();
     }
   }, [isOpen, initialBeneficiary]);
+
+  useEffect(() => {
+    if (state.step === 'dashboard' && state.beneficiary) {
+      loadUnreadNotifications();
+      const interval = setInterval(loadUnreadNotifications, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [state.step, state.beneficiary]);
+
+  const loadUnreadNotifications = async () => {
+    if (!state.beneficiary) return;
+    try {
+      const count = await notificationService.getUnreadCount(state.beneficiary.id);
+      setUnreadNotifications(count);
+    } catch (error) {
+      console.error('Error loading notification count:', error);
+    }
+  };
 
   const checkAuthStatus = async () => {
     if (!initialBeneficiary) return;
@@ -519,51 +544,98 @@ export default function BeneficiaryPortalModal({
           </div>
         </div>
 
-        <div className="flex gap-2 border-b border-blue-500/30">
-          <button
-            onClick={() => setActiveTab('profile')}
-            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
-              activeTab === 'profile'
-                ? 'border-white text-white'
-                : 'border-transparent text-blue-100 hover:text-white'
-            }`}
-          >
-            <User className="w-4 h-4 inline ml-2" />
-            الملف الشخصي
-          </button>
-          <button
-            onClick={() => setActiveTab('documents')}
-            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
-              activeTab === 'documents'
-                ? 'border-white text-white'
-                : 'border-transparent text-blue-100 hover:text-white'
-            }`}
-          >
-            <FileText className="w-4 h-4 inline ml-2" />
-            المستندات
-          </button>
-          <button
-            onClick={() => setActiveTab('packages')}
-            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
-              activeTab === 'packages'
-                ? 'border-white text-white'
-                : 'border-transparent text-blue-100 hover:text-white'
-            }`}
-          >
-            <Package className="w-4 h-4 inline ml-2" />
-            الطرود ({state.packages.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('security')}
-            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
-              activeTab === 'security'
-                ? 'border-white text-white'
-                : 'border-transparent text-blue-100 hover:text-white'
-            }`}
-          >
-            <Shield className="w-4 h-4 inline ml-2" />
-            الأمان
-          </button>
+        <div className="flex items-center justify-between">
+          <div className="flex gap-2 border-b border-blue-500/30 flex-1 overflow-x-auto">
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'profile'
+                  ? 'border-white text-white'
+                  : 'border-transparent text-blue-100 hover:text-white'
+              }`}
+            >
+              <User className="w-4 h-4 inline ml-2" />
+              الملف الشخصي
+            </button>
+            <button
+              onClick={() => setActiveTab('status')}
+              className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'status'
+                  ? 'border-white text-white'
+                  : 'border-transparent text-blue-100 hover:text-white'
+              }`}
+            >
+              <CheckCircle className="w-4 h-4 inline ml-2" />
+              حالة الحساب
+            </button>
+            <button
+              onClick={() => setActiveTab('mydata')}
+              className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'mydata'
+                  ? 'border-white text-white'
+                  : 'border-transparent text-blue-100 hover:text-white'
+              }`}
+            >
+              <FileText className="w-4 h-4 inline ml-2" />
+              بياناتي
+            </button>
+            <button
+              onClick={() => setActiveTab('packages')}
+              className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'packages'
+                  ? 'border-white text-white'
+                  : 'border-transparent text-blue-100 hover:text-white'
+              }`}
+            >
+              <Package className="w-4 h-4 inline ml-2" />
+              الطرود ({state.packages.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('activity')}
+              className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'activity'
+                  ? 'border-white text-white'
+                  : 'border-transparent text-blue-100 hover:text-white'
+              }`}
+            >
+              <Activity className="w-4 h-4 inline ml-2" />
+              السجل
+            </button>
+            <button
+              onClick={() => setActiveTab('security')}
+              className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'security'
+                  ? 'border-white text-white'
+                  : 'border-transparent text-blue-100 hover:text-white'
+              }`}
+            >
+              <Shield className="w-4 h-4 inline ml-2" />
+              الأمان
+            </button>
+          </div>
+          <div className="relative mr-4">
+            <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="relative p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+            >
+              <Bell className="w-5 h-5" />
+              {unreadNotifications > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                  {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                </span>
+              )}
+            </button>
+            {state.beneficiary && (
+              <NotificationsDropdown
+                beneficiaryId={state.beneficiary.id}
+                isOpen={showNotifications}
+                onClose={() => {
+                  setShowNotifications(false);
+                  loadUnreadNotifications();
+                }}
+              />
+            )}
+          </div>
         </div>
       </div>
 
@@ -685,6 +757,28 @@ export default function BeneficiaryPortalModal({
               </div>
             </Card>
           </div>
+        )}
+
+        {activeTab === 'status' && state.beneficiary && (
+          <AccountStatusTab beneficiaryId={state.beneficiary.id} />
+        )}
+
+        {activeTab === 'mydata' && state.beneficiary && (
+          <MyDataTab
+            beneficiary={state.beneficiary}
+            onUpdate={async () => {
+              if (state.beneficiary) {
+                const updated = await beneficiaryAuthService.searchByNationalId(nationalId);
+                if (updated) {
+                  setState(prev => ({ ...prev, beneficiary: updated }));
+                }
+              }
+            }}
+          />
+        )}
+
+        {activeTab === 'activity' && state.beneficiary && (
+          <ActivityLogTab beneficiaryId={state.beneficiary.id} />
         )}
 
         {activeTab === 'documents' && (
