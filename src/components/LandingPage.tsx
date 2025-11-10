@@ -312,6 +312,21 @@ export default function LandingPage({ onNavigateTo }: LandingPageProps) {
                 </div>
               )}
 
+              {/* Quick Access to Advanced Search */}
+              <div className="mb-6">
+                <button
+                  onClick={() => onNavigateTo('search')}
+                  className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white font-bold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-3"
+                >
+                  <Search className="w-6 h-6" />
+                  <span className="text-lg">البحث المتقدم عن المستفيدين</span>
+                  <span className="text-sm bg-white/20 px-3 py-1 rounded-full">جديد</span>
+                </button>
+                <p className="text-center text-sm text-gray-600 mt-2">
+                  للبحث التفصيلي مع عرض جميع البيانات، الطرود، وحالة التوثيق
+                </p>
+              </div>
+
               {/* Instructions - Enhanced for Non-Technical Users */}
               <div className="bg-gradient-to-br from-green-50 to-blue-50 border-2 border-green-300 rounded-xl p-5 shadow-sm">
                 <button
